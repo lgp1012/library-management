@@ -1,0 +1,57 @@
+# ===== Maven =====
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ===== IntelliJ IDEA =====
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# ===== VS Code =====
+.vscode/
+
+# ===== NetBeans =====
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+.env
+*.env.local
+application-local.yaml
+application-local.properties
+
+# ===== Log =====
+*.log
+logs/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Java =====
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
