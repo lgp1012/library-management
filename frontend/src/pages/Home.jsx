@@ -1,4 +1,4 @@
-import SigninForm from "../components/SigninForm.jsx";
+import SigninForm from "../components/auth/SigninForm.jsx";
 
 export default function Home (){
     return (
