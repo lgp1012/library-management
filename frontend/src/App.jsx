@@ -1,9 +1,7 @@
-import Home from './pages/Home.jsx';
+import SigninPage from "./pages/SigninPage.jsx";
 
 function App() {
-  return (
-    <Home />
-  );
+  return <SigninPage />;
 }
 
-export default App
+export default App;
