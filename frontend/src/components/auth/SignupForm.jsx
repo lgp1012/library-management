@@ -1,4 +1,11 @@
 import { useState } from "react";
+import {
+  confirmPasswordValidation,
+  emailValidation,
+  passwordValidation,
+  phoneValidation,
+  usernameValidation,
+} from "../../validations/registerValidation";
 
 const SignupForm = () => {
   const [formData, setFormData] = useState({
@@ -7,6 +14,13 @@ const SignupForm = () => {
     password: "",
     confirmPassword: "",
     phone: "",
+  });
+  const [errors, setErrors] = useState({
+    email: null,
+    username: null,
+    password: null,
+    confirmPassword: null,
+    phone: null,
   });
 
   const { email, username, password, confirmPassword, phone } = formData;
@@ -17,12 +31,68 @@ const SignupForm = () => {
       ...prevData,
       [name]: value,
     }));
+
+    let errorMessage = null;
+
+    switch (name) {
+      case "email":
+        errorMessage = emailValidation(value);
+        break;
+      case "username":
+        errorMessage = usernameValidation(value);
+        break;
+      case "password":
+        errorMessage = passwordValidation(value);
+        break;
+      case "confirmPassword":
+        errorMessage = confirmPasswordValidation(password, value);
+        break;
+      default:
+        break;
+    }
+
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: errorMessage,
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     // Handle form submission logic here
-    console.log("Form submitted:", formData);
+    const emailError = emailValidation(email);
+    const usernameError = usernameValidation(username);
+    const passwordError = passwordValidation(password);
+    const confirmPasswordError = confirmPasswordValidation(
+      password,
+      confirmPassword,
+    );
+    const phoneError = phoneValidation(phone);
+
+    setErrors({
+      email: emailError,
+      username: usernameError,
+      password: passwordError,
+      confirmPassword: confirmPasswordError,
+      phone: phoneError,
+    });
+
+    if (
+      emailError ||
+      usernameError ||
+      passwordError ||
+      confirmPasswordError ||
+      phoneError
+    ) {
+      // Handle validation errors (e.g., display error messages)
+      console.log("Validation errors:", {
+        emailError,
+        usernameError,
+        passwordError,
+        confirmPasswordError,
+        phoneError,
+      });
+    }
   };
 
   return (
@@ -40,8 +110,12 @@ const SignupForm = () => {
               required
               value={email}
               onChange={handleChange}
+              onBlur={handleChange}
             />
           </label>
+          {errors.email && (
+            <p className="text-red-500 text-sm">{errors.email}</p>
+          )}
         </div>
 
         <div className="username-field">
@@ -56,8 +130,12 @@ const SignupForm = () => {
               required
               value={username}
               onChange={handleChange}
+              onBlur={handleChange}
             />
           </label>
+          {errors.username && (
+            <p className="text-red-500 text-sm">{errors.username}</p>
+          )}
         </div>
 
         <div className="password-field">
@@ -74,6 +152,9 @@ const SignupForm = () => {
               onChange={handleChange}
             />
           </label>
+          {errors.password && (
+            <p className="text-red-500 text-sm">{errors.password}</p>
+          )}
         </div>
 
         <div className="confirm-password-field">
@@ -90,6 +171,9 @@ const SignupForm = () => {
               onChange={handleChange}
             />
           </label>
+          {errors.confirmPassword && (
+            <p className="text-red-500 text-sm">{errors.confirmPassword}</p>
+          )}
         </div>
 
         <div className="phone-field">
@@ -104,6 +188,9 @@ const SignupForm = () => {
               onChange={handleChange}
             />
           </label>
+          {errors.phone && (
+            <p className="text-red-500 text-sm">{errors.phone}</p>
+          )}
         </div>
 
         <button type="submit" className="signup-btn">

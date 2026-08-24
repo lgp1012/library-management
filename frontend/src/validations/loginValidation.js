@@ -1,12 +1,24 @@
-const loginValidation = (formData) => {
-  const errors = {};
-  const usernameRegex = /\w{3,20}$/; // Phải có cả chữ và số, từ 3 đến 20 ký tự
-
-  if (!formData.username) {
-    errors.username = "Tên đăng nhập là bắt buộc";
-  } else if (!usernameRegex.test(formData.username)) {
-    errors.username = "Tên đăng nhập không hợp lệ";
+const emailValidation = (email) => {
+  if (!email) {
+    return "Email không được để trống";
   }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return "Email không hợp lệ";
+  }
+  return null;
 };
 
-export default loginValidation;
+const passwordValidation = (password) => {
+  if (!password) {
+    return "Mật khẩu không được để trống";
+  }
+
+  if (password.length < 6) {
+    return "Mật khẩu phải có ít nhất 6 ký tự";
+  }
+
+  return null;
+};
+
+export { emailValidation, passwordValidation };
