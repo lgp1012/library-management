@@ -1,47 +1,37 @@
-import { BookOpen } from "lucide-react";
+import signinIllustration from "../assets/images/signinup_page_pic.png";
 import SigninForm from "../components/auth/SigninForm.jsx";
 import Header from "../components/Header.jsx";
 
 export default function SigninPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <Header />
+    <div className="flex min-h-screen flex-col bg-gray-100">
+      <Header authAction="signin" />
 
-      <main className="mx-auto grid max-w-350 gap-20 lg:grid-cols-[1.35fr_0.9fr]">
-        <section className=" bg-linear-to-b from-slate-100 px-6 py-8 sm:px-10 lg:px-12">
+      <main className="mx-auto grid w-full max-w-350 flex-1 items-center gap-20 lg:grid-cols-[1.35fr_0.9fr]">
+        <section className="flex flex-col justify-center bg-linear-to-b from-slate-100 px-6 py-8 sm:px-10 lg:px-12">
           <p className="mb-2 text-3xl font-semibold text-sky-950">
             Chào mừng bạn đến với
           </p>
+
           <h2 className="mb-3 text-4xl font-extrabold uppercase tracking-wide text-sky-950">
             THƯ VIỆN PPNNT
           </h2>
 
-          <div className="relative mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="absolute -left-24 top-16 h-48 w-48 rounded-full bg-blue-100 blur-2xl" />
-            <div className="absolute -right-24 bottom-6 h-48 w-48 rounded-full bg-cyan-100 blur-2xl" />
-
-            <div className="relative mx-auto flex h-80 max-w-3xl items-center justify-center rounded-2xl border border-blue-100 bg-linear-to-b from-slate-50 to-blue-50">
-              <div className="text-center">
-                <BookOpen className="mx-auto mb-4 h-14 w-14 text-blue-600" />
-                <p className="text-lg font-semibold text-slate-800">
-                  Khu vực minh họa hệ thống dashboard thư viện
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Bạn có thể thay bằng ảnh thật trong src/assets/images
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-8 text-sm text-slate-500">
-            © 2026 Hệ thống quản lý thư viện. Tất cả quyền được bảo lưu.
-          </p>
+          <img
+            src={signinIllustration}
+            alt="Signin Illustration"
+            className=" w-full object-contain mix-blend-multiply"
+          />
         </section>
 
-        <section className="flex items-center justify-center bg-slate-50 px-4 py-8 sm:px-8 lg:px-10">
+        <section className="flex items-center justify-center bg-slate-50 px-4 py-8 sm:px-8 lg:min-h-[calc(100vh-3.5rem)] lg:px-10">
           <SigninForm />
         </section>
       </main>
+
+      <footer className="bg-sky-950 flex w-full items-center justify-between px-4 py-3 text-xs sm:px-6 lg:px-8 text-white">
+        <p>© 2026 PPNNT Library.</p>
+      </footer>
     </div>
   );
 }
