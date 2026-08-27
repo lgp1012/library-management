@@ -1,25 +1,30 @@
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, Loader, LockKeyhole, User } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import authService from "../../services/authService";
 import {
-  emailValidation,
   passwordValidation,
-} from "../../validations/loginValidation";
+  usernameValidation,
+} from "../../validations/signinValidation";
 
 const SigninForm = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: "",
   });
 
-  const [errors, setErrors] = useState({
-    email: null,
+  const [errorsValidation, setErrorsValidation] = useState({
+    username: null,
     password: null,
   });
 
+  const [errorAPI, setErrorAPI] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
 
-  const { email, password } = formData;
+  const { username, password } = formData;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -30,35 +35,48 @@ const SigninForm = () => {
 
     let errorMessage = null;
 
-    if (name === "email") {
-      errorMessage = emailValidation(value);
+    switch (name) {
+      case "username":
+        errorMessage = usernameValidation(value);
+        break;
+      case "password":
+        errorMessage = passwordValidation(value);
+        break;
+      default:
+        break;
     }
 
-    if (name === "password") {
-      errorMessage = passwordValidation(value);
-    }
-
-    setErrors((prevErrors) => ({
+    setErrorsValidation((prevErrors) => ({
       ...prevErrors,
       [name]: errorMessage,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // Handle form submission logic here
 
-    const emailError = emailValidation(email);
+    const usernameError = usernameValidation(username);
     const passwordError = passwordValidation(password);
 
-    setErrors({
-      email: emailError,
+    setErrorsValidation({
+      username: usernameError,
       password: passwordError,
     });
 
-    if (!emailError && !passwordError) {
-      // Proceed with form submission (e.g., API call)
-      console.log("Form submitted:", formData);
+    if (usernameError && passwordError) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await authService.signin(formData);
+      navigate("/");
+    } catch (error) {
+      setErrorAPI(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,33 +85,32 @@ const SigninForm = () => {
       <h2 className="mb-6 text-2xl font-bold text-slate-800 text-center">
         Đăng nhập
       </h2>
-      <p className="mb-6 text-xs text-slate-600 text-center">
+      <p className="mb-6 text-sm text-slate-600 text-center">
         Vui lòng nhập thông tin đăng nhập của bạn để tiếp tục.
       </p>
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label
-            htmlFor="email"
+            htmlFor="username"
             className="mb-1 block text-sm font-semibold text-slate-700"
           >
-            Email
+            Tên đăng nhập
           </label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              name="email"
-              id="email"
-              value={email}
-              placeholder="Nhập email của bạn"
+              name="username"
+              id="username"
+              value={username}
+              placeholder="Nhập tên đăng nhập của bạn"
               onChange={handleChange}
-              onBlur={handleChange}
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
-          {errors.email && (
-            <p className="text-red-500 text-sm">{errors.email}</p>
+          {errorsValidation.username && (
+            <p className="text-red-500 text-sm">{errorsValidation.username}</p>
           )}
         </div>
 
@@ -113,7 +130,6 @@ const SigninForm = () => {
               value={password}
               placeholder="Nhập mật khẩu của bạn"
               onChange={handleChange}
-              onBlur={handleChange}
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-10 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <button
@@ -129,8 +145,8 @@ const SigninForm = () => {
             </button>
           </div>
 
-          {errors.password && (
-            <p className="text-red-500 text-sm">{errors.password}</p>
+          {errorsValidation.password && (
+            <p className="text-red-500 text-sm">{errorsValidation.password}</p>
           )}
         </div>
 
@@ -144,19 +160,23 @@ const SigninForm = () => {
             />
             {"Ghi nhớ đăng nhập"}
           </label>
-          <button
-            type="button"
-            className="text-sm font-medium text-blue-700 transition hover:text-blue-800"
-          >
-            {"Quên mật khẩu?"}
-          </button>
         </div>
 
+        {errorAPI && (
+          <p className="text-red-500 text-sm text-center">{errorAPI}</p>
+        )}
         <button
           className="w-full bg-sky-900 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition shadow-md hover:shadow-lg"
           type="submit"
+          disabled={loading}
         >
-          {"Đăng nhập"}
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <Loader className="h-4 w-4" />
+            </span>
+          ) : (
+            "Đăng nhập"
+          )}
         </button>
 
         <div className="pt-1 text-center text-sm text-slate-500">
