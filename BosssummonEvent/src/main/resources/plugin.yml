@@ -1,0 +1,22 @@
+name: BosssummonEvent
+version: '${project.version}'
+main: me.ihqqq.bosssummon.BossSummonPlugin
+api-version: '1.21'
+
+author: ihqq
+
+depend: [MythicMobs]
+
+commands:
+  bosssummon:
+    description: Quản lý sự kiện triệu hồi boss
+    usage: /<command> help
+    aliases: [bse, bossevent]
+
+permissions:
+  bosssummon.admin:
+    description: Cho phép điều khiển toàn bộ sự kiện triệu hồi bot
+    default: op
+  bosssummon.notify:
+    description: Nhận thông báo tiến trình sự kiện
+    default: true
