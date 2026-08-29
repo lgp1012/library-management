@@ -1,3 +1,8 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
 spring:
   application:
     name: library-management
@@ -6,7 +11,6 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,3 +18,14 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.SQLServerDialect
+  jackson:
+    default-property-inclusion: non_null
+
+jwt:
+  signerKey: ${JWT_SIGNER_KEY}
+  valid-duration: ${JWT_VALID_DURATION:900}
+  refreshable-duration: ${JWT_REFRESHABLE_DURATION:36000}
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
