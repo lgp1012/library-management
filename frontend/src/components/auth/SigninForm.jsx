@@ -1,13 +1,15 @@
 import { Eye, EyeOff, Loader, LockKeyhole, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import authService from "../../services/authService";
+import ROLE_ROUTES from "../../constants/roleRoutes";
+import useAuth from "../../hooks/useAuth";
 import {
   passwordValidation,
   usernameValidation,
 } from "../../validations/signinValidation";
 
 const SigninForm = () => {
+  const { signin, user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: "",
@@ -68,10 +70,9 @@ const SigninForm = () => {
       return;
     }
 
-    setLoading(true);
-
     try {
-      await authService.signin(formData);
+      setLoading(true);
+      await signin(formData);
       navigate("/");
     } catch (error) {
       setErrorAPI(error.message);
@@ -79,6 +80,14 @@ const SigninForm = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      const roleName = user.role?.name?.toUpperCase();
+      const route = ROLE_ROUTES[roleName] || "/";
+      navigate(route, { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-4xl shadow-md ">
