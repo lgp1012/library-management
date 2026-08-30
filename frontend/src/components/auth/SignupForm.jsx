@@ -4,7 +4,6 @@ import {
   Loader,
   Lock,
   Mail,
-  Phone,
   ShieldCheck,
   User,
   UserPlus,
@@ -14,7 +13,6 @@ import {
   confirmPasswordValidation,
   emailValidation,
   passwordValidation,
-  phoneValidation,
   usernameValidation,
 } from "../../validations/signupValidation";
 
@@ -31,7 +29,6 @@ const SignupForm = () => {
     username: "",
     password: "",
     confirmPassword: "",
-    phone: "",
   });
 
   // State to manage validation errors
@@ -51,7 +48,7 @@ const SignupForm = () => {
   const [errorAPI, setErrorAPI] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const { email, username, password, confirmPassword, phone } = formData;
+  const { email, username, password, confirmPassword } = formData;
 
   // Handle input changes and perform validation
   const handleChange = (e) => {
@@ -96,29 +93,21 @@ const SignupForm = () => {
       password,
       confirmPassword,
     );
-    const phoneError = phoneValidation(phone);
 
     setErrorsValidation({
       email: emailError,
       username: usernameError,
       password: passwordError,
       confirmPassword: confirmPasswordError,
-      phone: phoneError,
     });
 
-    if (
-      emailError &&
-      usernameError &&
-      passwordError &&
-      confirmPasswordError &&
-      phoneError
-    ) {
+    if (emailError && usernameError && passwordError && confirmPasswordError) {
       return;
     }
 
     setLoading(true);
     try {
-      await authService.signup(formData);
+      await authService.signup({ email, username, password });
       navigate("/signin");
     } catch (error) {
       setErrorAPI(error.message);
@@ -261,31 +250,6 @@ const SignupForm = () => {
             <p className="text-red-500 text-sm">
               {errorsValidation.confirmPassword}
             </p>
-          )}
-        </div>
-
-        <div className="phone-field">
-          <label
-            htmlFor="phone"
-            className="mb-1 block text-sm font-semibold text-slate-700"
-          >
-            {"Số điện thoại"}
-          </label>
-          <div className="relative">
-            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="tel"
-              name="phone"
-              id="phone"
-              placeholder="0123456789"
-              value={phone}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-
-          {errorsValidation.phone && (
-            <p className="text-red-500 text-sm">{errorsValidation.phone}</p>
           )}
         </div>
 
