@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import me.ihqqq.library_management.constant.PredefinedRole;
 import me.ihqqq.library_management.dto.request.ChangePasswordRequest;
 import me.ihqqq.library_management.dto.request.UserCreationRequest;
 import me.ihqqq.library_management.dto.request.UserUpdateRequest;
@@ -63,10 +64,6 @@ public class UserService {
         return userMapper.toUserResponse(user);
     }
 
-    /**
-     * Tạo user mới. User_ID được sinh tự động (varchar(10), unique),
-     * mật khẩu được hash bằng SHA-512 trước khi lưu.
-     */
     @Transactional
     public UserResponse createUser(UserCreationRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
@@ -93,9 +90,7 @@ public class UserService {
         return userMapper.toUserResponse(saved);
     }
 
-    /**
-     * Cập nhật thông tin user (partial update: email, isActive, role).
-     */
+
     @Transactional
     public UserResponse updateUser(String id, UserUpdateRequest request) {
         User user = userRepository.findById(id)
@@ -181,11 +176,12 @@ public class UserService {
     }
 
     private Role resolveRole(Integer roleId) {
-        if (roleId == null) {
-            return null;
+        if (roleId != null) {
+            return roleRepository.findById(roleId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         }
-        return roleRepository.findById(roleId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+        return roleRepository.findByRoleNameIgnoreCase(PredefinedRole.READER_ROLE)
+                .orElse(null);
     }
 
     private String generateUniqueUserId() {
