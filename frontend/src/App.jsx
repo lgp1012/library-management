@@ -10,7 +10,7 @@ function App() {
   return (
     <Routes>
       <Route path="/signin" element={<SigninPage />} />
-      <Route path="/signup" element={<SignupPage />} />\
+      <Route path="/signup" element={<SignupPage />} />
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
         <Route path="/admin/dashboard" element={<AdminPage />} />
       </Route>

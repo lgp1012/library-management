@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData.result);
       } catch (error) {
         console.error("Failed to restore session:", error);
+        localStorage.clear();
         setUser(null);
       } finally {
         setLoading(false);
@@ -48,6 +49,7 @@ export const AuthProvider = ({ children }) => {
 
     const userData = await authService.fetchMe();
     setUser(userData.result);
+    return userData.result;
   }, []);
 
   const signout = useCallback(async () => {
@@ -63,13 +65,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
   const value = useMemo(
-    () => ({ user, signin, signout }),
-    [user, signin, signout],
+    () => ({ user, signin, loading, signout }),
+    [user, signin, signout, loading],
   );
-
-  if (loading) {
-    return null;
-  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

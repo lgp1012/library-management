@@ -6,7 +6,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
     return <Navigate to="/signin" replace />;
   }
 
-  const roleName = user.role?.name?.toUpperCase();
+  const roleName = user.role?.roleName?.toUpperCase();
   if (allowedRoles && !allowedRoles.includes(roleName)) {
     return <Navigate to="/unauthorized" replace />;
   }

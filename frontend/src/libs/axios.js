@@ -23,6 +23,11 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const isAuthEndpoint = originalRequest.url.includes("/auth/");
+      if (isAuthEndpoint) {
+        localStorage.clear();
+        throw error;
+      }
       originalRequest._retry = true;
 
       try {
@@ -36,7 +41,6 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         localStorage.clear();
-        window.location.href = "/signin";
         throw refreshError;
       }
     }
