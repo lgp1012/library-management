@@ -73,7 +73,10 @@ public class UserService {
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
-        Role role = resolveRole(request.getRoleId());
+        Role role = request.getRoleId() == null
+                ? roleRepository.findByRoleName("Reader")
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND))
+                : resolveRole(request.getRoleId());
 
         User user = User.builder()
                 .userId(generateUniqueUserId())
