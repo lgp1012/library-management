@@ -6,6 +6,9 @@ import ReaderPage from "./pages/ReaderPage.jsx";
 import SigninPage from "./pages/SigninPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 
+const isReaderPreview =
+  import.meta.env.DEV && import.meta.env.VITE_READER_PREVIEW === "true";
+
 function App() {
   return (
     <Routes>
@@ -17,9 +20,13 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={["EMPLOYEE"]} />}>
         <Route path="/employee/dashboard" element={<EmployeePage />} />
       </Route>
-      <Route element={<ProtectedRoute allowedRoles={["READER"]} />}>
+      {isReaderPreview ? (
         <Route path="/reader/dashboard" element={<ReaderPage />} />
-      </Route>
+      ) : (
+        <Route element={<ProtectedRoute allowedRoles={["READER"]} />}>
+          <Route path="/reader/dashboard" element={<ReaderPage />} />
+        </Route>
+      )}
       <Route path="/" element={<Navigate to="/signin" />} />
     </Routes>
   );

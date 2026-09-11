@@ -1,32 +1,31 @@
+import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import signinIllustration from "../assets/images/signinup_page_pic.png";
 import SigninForm from "../components/auth/SigninForm.jsx";
-import Header from "../components/Header.jsx";
-import {useEffect, useRef} from "react";
-import {useNavigate} from "react-router-dom";
-import useAuth from "../hooks/useAuth.js";
+import Footer from "../components/Footer.jsx";
+import Header from "../components/header/AuthHeader.jsx";
 import ROLE_ROUTES from "../constants/roleRoutes.js";
+import useAuth from "../hooks/useAuth.js";
 
 export default function SigninPage() {
-    const { user, loading } = useAuth();
-    const navigate = useNavigate();
-    const hasNavigated = useRef(false);
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const hasNavigated = useRef(false);
 
-    useEffect(() => {
-        if (loading) {
-            return;
-        }
-        if (user && !hasNavigated.current) {
-            hasNavigated.current = true;
-            const roleName = user.role?.roleName?.toUpperCase();
-            navigate(ROLE_ROUTES[roleName] ?? "/", { replace: true });
-        }
-    }, [user, loading]);
-
+  useEffect(() => {
     if (loading) {
-        return (
-            <div>{"Loading..."}</div>
-        );
+      return;
     }
+    if (user && !hasNavigated.current) {
+      hasNavigated.current = true;
+      const roleName = user.role?.roleName?.toUpperCase();
+      navigate(ROLE_ROUTES[roleName] ?? "/", { replace: true });
+    }
+  }, [user, loading]);
+
+  if (loading) {
+    return <div>{"Loading..."}</div>;
+  }
   return (
     <div className="flex min-h-screen flex-col bg-gray-100">
       <Header authAction="signin" />
@@ -53,9 +52,7 @@ export default function SigninPage() {
         </section>
       </main>
 
-      <footer className="bg-sky-950 flex w-full items-center justify-between px-4 py-3 text-xs sm:px-6 lg:px-8 text-white">
-        <p>© 2026 PPNNT Library.</p>
-      </footer>
+      <Footer />
     </div>
   );
 }

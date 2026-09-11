@@ -1,6 +1,7 @@
 import signinIllustration from "../assets/images/signinup_page_pic.png";
-import Header from "../components/Header.jsx";
 import SignupForm from "../components/auth/SignupForm.jsx";
+import Footer from "../components/Footer.jsx";
+import Header from "../components/header/AuthHeader.jsx";
 
 export default function SignupPage() {
   return (
@@ -29,9 +30,7 @@ export default function SignupPage() {
         </section>
       </main>
 
-      <footer className="bg-sky-950 flex w-full items-center justify-between px-4 py-3 text-xs sm:px-6 lg:px-8 text-white">
-        <p>© 2026 PPNNT Library.</p>
-      </footer>
+      <Footer />
     </div>
   );
 }
