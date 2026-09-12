@@ -22,7 +22,7 @@ spring:
     default-property-inclusion: non_null
 
 jwt:
-  signerKey: ${JWT_SIGNER_KEY}
+  signerKey: ${JWT_SIGNER_KEY:kF5zVTO0INk5i79nW8mzlUfpqPm1W31AuS30GPwOtM4IFpnZEE9dTYRjXkxKYLp4H2Ah3W6o5Z5PHO4hvmRE1b}
   valid-duration: ${JWT_VALID_DURATION:900}
   refreshable-duration: ${JWT_REFRESHABLE_DURATION:36000}
 
