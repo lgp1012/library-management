@@ -1,26 +1,20 @@
 import { useMemo, useState } from "react";
-import Footer from "../components/Footer";
-import ReaderHeader from "../components/header/ReaderHeader";
-import BookCatalogSection from "../components/reader/BookCatalogSection";
-import DueAlertBanner from "../components/reader/DueAlertBanner";
-import FeatureInfoCards from "../components/reader/FeatureInfoCards";
-import PersonalBorrowsSection from "../components/reader/PersonalBorrowsSection";
-import SearchFilterBar from "../components/reader/SearchFilterBar";
-import WelcomeHeroBanner from "../components/reader/WelcomeHeroBanner";
+import Footer from "../../components/Footer";
+import ReaderHeader from "../../components/header/ReaderHeader";
+import BookCatalogSection from "../../components/reader/BookCatalogSection";
+import FeatureInfoCards from "../../components/reader/FeatureInfoCards";
+import SearchFilterBar from "../../components/reader/SearchFilterBar";
+import WelcomeHeroBanner from "../../components/reader/WelcomeHeroBanner";
 import {
-  BORROWED_BOOKS,
   CATALOG_BOOKS,
-  DUE_ALERT_DATA,
   READER_PROFILE,
-} from "../constants/readerMockData";
+} from "../../constants/readerMockData";
 
-const ReaderPage = () => {
+const ReaderDashboard = () => {
   const [activeNavTab, setActiveNavTab] = useState("explore");
   const [profile] = useState(READER_PROFILE);
-  const [dueAlert] = useState(DUE_ALERT_DATA);
 
-  // Books state
-  const [borrowedBooks, setBorrowedBooks] = useState(BORROWED_BOOKS);
+  // Books state for catalog
   const [catalogBooks, setCatalogBooks] = useState(CATALOG_BOOKS);
 
   // Search & Filter state
@@ -73,28 +67,6 @@ const ReaderPage = () => {
     setAvailableOnly(false);
   };
 
-  // Handle Renew Borrowed Book
-  const handleRenewBook = (bookId) => {
-    setBorrowedBooks((prev) =>
-      prev.map((b) =>
-        b.id === bookId
-          ? {
-              ...b,
-              tagText: "Đã gia hạn",
-              tagType: "success",
-              dueDate: "09/12/2024",
-              canRenew: false,
-            }
-          : b,
-      ),
-    );
-  };
-
-  // Handle Return Book
-  const handleReturnBook = (bookId) => {
-    setBorrowedBooks((prev) => prev.filter((b) => b.id !== bookId));
-  };
-
   // Handle Borrow Catalog Book
   const handleBorrowBook = (bookId) => {
     setCatalogBooks((prev) =>
@@ -127,10 +99,7 @@ const ReaderPage = () => {
         {/* 1. Welcome Hero Banner */}
         <WelcomeHeroBanner profile={profile} />
 
-        {/* 2. Due Alert Banner */}
-        <DueAlertBanner alertData={dueAlert} />
-
-        {/* 3. Search & Filter Bar */}
+        {/* 2. Search & Filter Bar */}
         <SearchFilterBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -146,21 +115,14 @@ const ReaderPage = () => {
           resultCount={filteredCatalogBooks.length * 12}
         />
 
-        {/* 4. Personal Workspace (Borrows & Reservations) */}
-        <PersonalBorrowsSection
-          books={borrowedBooks}
-          onRenew={handleRenewBook}
-          onReturn={handleReturnBook}
-        />
-
-        {/* 5. Curated Catalog Section */}
+        {/* 3. Curated Catalog Section */}
         <BookCatalogSection
           catalogBooks={filteredCatalogBooks}
           onBorrowBook={handleBorrowBook}
           onReserveBook={handleReserveBook}
         />
 
-        {/* 6. Policy & Feature Cards */}
+        {/* 4. Policy & Feature Cards */}
         <FeatureInfoCards />
       </main>
 
@@ -170,4 +132,4 @@ const ReaderPage = () => {
   );
 };
 
-export default ReaderPage;
+export default ReaderDashboard;

@@ -1,4 +1,10 @@
-import { Search, RotateCcw, SlidersHorizontal, ChevronDown } from "lucide-react";
+import {
+  X as Cancel,
+  ChevronDown,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { FILTER_OPTIONS } from "../../constants/readerMockData";
 
 const SearchFilterBar = ({
@@ -31,9 +37,11 @@ const SearchFilterBar = ({
             className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-20 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
           />
           <div className="absolute inset-y-0 right-3 flex items-center">
-            <kbd className="hidden md:inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-mono text-slate-500 shadow-2xs">
-              ⌘ + K
-            </kbd>
+            <button type="button" onClick={() => setSearchTerm("")}>
+              <span className="text-slate-400 hover:text-slate-500">
+                <Cancel className="h-4 w-4" />
+              </span>
+            </button>
           </div>
         </div>
 
@@ -116,7 +124,9 @@ const SearchFilterBar = ({
         {/* Right Info & Reset Button */}
         <div className="flex items-center justify-between md:justify-end gap-4 text-xs">
           <span className="text-slate-500 font-medium">
-            Tìm thấy <strong className="font-bold text-slate-800">{resultCount}</strong> tài liệu
+            Tìm thấy{" "}
+            <strong className="font-bold text-slate-800">{resultCount}</strong>{" "}
+            tài liệu
           </span>
 
           <button
