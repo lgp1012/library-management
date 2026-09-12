@@ -12,10 +12,29 @@ public class IdGenerator {
     }
 
     public static String generateUserId() {
-        StringBuilder sb = new StringBuilder(USER_ID_LENGTH);
-        for (int i = 0; i < USER_ID_LENGTH; i++) {
+        return generateId("", USER_ID_LENGTH);
+    }
+
+    public static String generateId(String prefix, int totalLength) {
+        if (prefix.length() >= totalLength) {
+            return prefix.substring(0, totalLength);
+        }
+        StringBuilder sb = new StringBuilder(prefix);
+        while (sb.length() < totalLength) {
             sb.append(CHARS.charAt(RANDOM.nextInt(CHARS.length())));
         }
         return sb.toString();
+    }
+
+    public static String generateReaderId() {
+        return generateId("RD", USER_ID_LENGTH);
+    }
+
+    public static String generateReservationId() {
+        return generateId("RE", USER_ID_LENGTH);
+    }
+
+    public static String generateNotificationId() {
+        return generateId("N", USER_ID_LENGTH);
     }
 }
