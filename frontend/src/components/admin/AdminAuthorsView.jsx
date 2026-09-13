@@ -9,75 +9,66 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-const AdminAuthorsView = ({ authors, setAuthors }) => {
+import { useAdmin } from "../../hooks/useAdmin";
+import adminService from "../../services/adminService";
+
+const AdminAuthorsView = () => {
+  const { authors, setAuthors } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
-    nationality: "",
-    years: "",
-    genre: "",
-    bio: "",
-    holdingsCount: 0,
   });
 
   const filteredAuthors = useMemo(() => {
     return authors?.filter((author) => {
       if (!searchTerm.trim()) return true;
       const query = searchTerm.toLowerCase();
-      return (
-        author.name.toLowerCase().includes(query) ||
-        author.nationality.toLowerCase().includes(query) ||
-        author.genre.toLowerCase().includes(query) ||
-        author.bio.toLowerCase().includes(query)
-      );
+      return author.authorName?.toLowerCase().includes(query);
     });
   }, [authors, searchTerm]);
 
   const handleOpenCreate = () => {
     setEditingAuthor(null);
-    setFormData({
-      name: "",
-      nationality: "Việt Nam",
-      years: "1980 - Hiện tại",
-      genre: "Khoa học Máy tính",
-      bio: "",
-      holdingsCount: 1,
-    });
+    setFormData({ name: "" });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (author) => {
     setEditingAuthor(author);
-    setFormData({
-      name: author.name,
-      nationality: author.nationality,
-      years: author.years,
-      genre: author.genre,
-      bio: author.bio,
-      holdingsCount: author.holdingsCount,
-    });
+    setFormData({ name: author.authorName });
     setIsModalOpen(true);
   };
 
-  const handleSubmitForm = (e) => {
+  const handleDelete = async (id) => {
+    if (window.confirm("Bạn có chắc muốn xóa tác giả này?")) {
+      try {
+        await adminService.deleteAuthor(id);
+        setAuthors((prev) => prev.filter((a) => a.authorId !== id));
+      } catch (error) {
+        alert("Lỗi khi xóa tác giả: " + (error.response?.data?.message || error.message));
+      }
+    }
+  }
+
+  const handleSubmitForm = async (e) => {
     e.preventDefault();
     if (!formData.name) return;
 
-    if (editingAuthor) {
-      setAuthors((prev) =>
-        prev.map((a) => (a.id === editingAuthor.id ? { ...a, ...formData } : a))
-      );
-    } else {
-      const newAuthor = {
-        id: `auth-${Date.now()}`,
-        ...formData,
-      };
-      setAuthors((prev) => [newAuthor, ...prev]);
+    try {
+      if (editingAuthor) {
+        const res = await adminService.updateAuthor(editingAuthor.authorId, { authorName: formData.name });
+        setAuthors((prev) => prev.map((a) => a.authorId === editingAuthor.authorId ? res.result : a));
+      } else {
+        const res = await adminService.createAuthor({ authorName: formData.name });
+        setAuthors((prev) => [...prev, res.result]);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      alert("Lỗi lưu tác giả: " + (error.response?.data?.message || error.message));
     }
-    setIsModalOpen(false);
   };
 
   return (
@@ -120,53 +111,36 @@ const AdminAuthorsView = ({ authors, setAuthors }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAuthors?.map((author) => (
           <div
-            key={author.id}
+            key={author.authorId}
             className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
           >
             <div>
-              {/* Header: Name & Edit */}
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">
-                    {author.name}
+                    {author.authorName}
                   </h3>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-1">
-                    <Globe className="h-3.5 w-3.5 text-sky-600" />
-                    <span>
-                      {author.nationality} • ({author.years})
-                    </span>
+                    <span>ID: {author.authorId}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleOpenEdit(author)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors"
-                  title="Chỉnh sửa hồ sơ"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleOpenEdit(author)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+                    title="Chỉnh sửa hồ sơ"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(author.authorId)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    title="Xóa tác giả"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-
-              {/* Genre Badge */}
-              <div className="mt-3">
-                <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-sky-100 text-sky-800 border border-sky-200">
-                  {author.genre}
-                </span>
-              </div>
-
-              {/* Bio */}
-              <p className="text-xs text-slate-600 mt-3 leading-relaxed min-h-[48px]">
-                {author.bio}
-              </p>
-            </div>
-
-            {/* Bottom holdings count */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-medium">
-                Số đầu sách trong thư viện:
-              </span>
-              <span className="font-extrabold text-slate-900 font-mono">
-                {author.holdingsCount} cuốn
-              </span>
             </div>
           </div>
         ))}
@@ -175,7 +149,7 @@ const AdminAuthorsView = ({ authors, setAuthors }) => {
       {/* Modal Dialog */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-sky-600" />
@@ -201,67 +175,6 @@ const AdminAuthorsView = ({ authors, setAuthors }) => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Nhập tên tác giả..."
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Quốc tịch</label>
-                  <input
-                    type="text"
-                    value={formData.nationality}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nationality: e.target.value })
-                    }
-                    placeholder="American, Vietnamese..."
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Năm sinh - Mất</label>
-                  <input
-                    type="text"
-                    value={formData.years}
-                    onChange={(e) => setFormData({ ...formData, years: e.target.value })}
-                    placeholder="1938 - Hiện tại"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Thể loại chính</label>
-                <input
-                  type="text"
-                  value={formData.genre}
-                  onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-                  placeholder="Computer Science, Literature..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Tiểu sử tóm tắt</label>
-                <textarea
-                  rows={3}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  placeholder="Mô tả thành tựu và tác phẩm tiêu biểu..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Số đầu sách trong thư viện</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={formData.holdingsCount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, holdingsCount: parseInt(e.target.value) || 0 })
-                  }
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 font-bold"
                 />
               </div>
 

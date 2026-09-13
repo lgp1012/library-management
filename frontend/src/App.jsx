@@ -2,10 +2,10 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/auth/ProtectedRoute.jsx";
 import AdminPage from "./pages/admin/AdminPage.jsx";
 import EmployeePage from "./pages/employee/EmployeePage.jsx";
-import ReaderDashboard from "./pages/reader/ReaderDashboard.jsx";
 import BorrowedBooksPage from "./pages/reader/BorrowedBooksPage.jsx";
-import ReservationPage from "./pages/reader/ReservationPage.jsx";
 import HistoryPage from "./pages/reader/HistoryPage.jsx";
+import ReaderDashboard from "./pages/reader/ReaderDashboard.jsx";
+import ReservationPage from "./pages/reader/ReservationPage.jsx";
 import SigninPage from "./pages/SigninPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 

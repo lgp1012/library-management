@@ -1,40 +1,34 @@
 import { Download, FileSpreadsheet, Filter, History, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAdmin } from "../../hooks/useAdmin";
 
-const AdminAuditLogsView = ({ auditLogs }) => {
+const AdminAuditLogsView = () => {
+  const { auditLogs } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
 
   const filteredLogs = useMemo(() => {
     return auditLogs.filter((log) => {
       // Search filter
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
-        const matchesActor = log.actor.toLowerCase().includes(query);
-        const matchesTarget = log.target.toLowerCase().includes(query);
-        const matchesDetails = log.details.toLowerCase().includes(query);
-        const matchesIp = log.ip.toLowerCase().includes(query);
-        const matchesId = log.id.toLowerCase().includes(query);
-        if (!matchesActor && !matchesTarget && !matchesDetails && !matchesIp && !matchesId) {
+        const matchesAdmin = log.admin?.toLowerCase().includes(query);
+        const matchesAction = log.action?.toLowerCase().includes(query);
+        const matchesDescription = log.description?.toLowerCase().includes(query);
+        const matchesId = log.id?.toLowerCase().includes(query);
+        if (!matchesAdmin && !matchesAction && !matchesDescription && !matchesId) {
           return false;
         }
       }
-
-      // Category filter
-      if (selectedCategory !== "ALL" && log.eventCategory !== selectedCategory) {
-        return false;
-      }
-
       return true;
     });
-  }, [auditLogs, searchTerm, selectedCategory]);
+  }, [auditLogs, searchTerm]);
 
   const handleExportCSV = () => {
-    const csvHeader = "ID,Timestamp,Actor,ActorCode,Tag,Target,Details,IP\n";
+    const csvHeader = "ID,Time,Admin,Action,Description,Status\n";
     const csvRows = filteredLogs
       .map(
         (l) =>
-          `"${l.id}","${l.timestamp}","${l.actor}","${l.actorCode}","${l.eventTag}","${l.target}","${l.details}","${l.ip}"`
+          `"${l.id}","${l.time}","${l.admin}","${l.action}","${l.description}","${l.status}"`
       )
       .join("\n");
     const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
@@ -78,26 +72,9 @@ const AdminAuditLogsView = ({ auditLogs }) => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo người thực hiện, loại thao tác, đối tượng, IP..."
+            placeholder="Tìm theo người thực hiện, loại thao tác, ID..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
-        </div>
-
-        {/* Category filter */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium w-full md:w-auto">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <span>Loại sự kiện:</span>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold outline-none focus:border-sky-500"
-          >
-            <option value="ALL">Tất cả sự kiện</option>
-            <option value="fine">Cấu hình phí phạt</option>
-            <option value="rules">Quy định mượn trả</option>
-            <option value="employee">Thao tác nhân viên</option>
-            <option value="shelves">Thay đổi kệ sách</option>
-          </select>
         </div>
       </div>
 
@@ -110,9 +87,8 @@ const AdminAuditLogsView = ({ auditLogs }) => {
                 <th className="py-3.5 px-4">Thời gian & Mã TX</th>
                 <th className="py-3.5 px-4">Người thực hiện</th>
                 <th className="py-3.5 px-4">Loại sự kiện</th>
-                <th className="py-3.5 px-4">Đối tượng tác động</th>
                 <th className="py-3.5 px-4">Chi tiết thao tác</th>
-                <th className="py-3.5 px-4 text-right">Địa chỉ IP</th>
+                <th className="py-3.5 px-4 text-right">Trạng thái</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -122,55 +98,39 @@ const AdminAuditLogsView = ({ auditLogs }) => {
                     {/* Timestamp & ID */}
                     <td className="py-4 px-4">
                       <div className="font-bold text-slate-900 font-mono">
-                        {log.timestamp}
+                        {log.time}
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono">{log.id}</div>
                     </td>
 
                     {/* Actor */}
                     <td className="py-4 px-4">
-                      <div className="font-bold text-slate-900">{log.actor}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {log.actorCode} • {log.actorRole}
-                      </div>
+                      <div className="font-bold text-slate-900">{log.admin}</div>
                     </td>
 
                     {/* Event Tag */}
                     <td className="py-4 px-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase ${
-                          log.eventTagType === "warning"
-                            ? "bg-amber-100 text-amber-800 border border-amber-200"
-                            : log.eventTagType === "purple"
-                            ? "bg-purple-100 text-purple-800 border border-purple-200"
-                            : log.eventTagType === "cyan"
-                            ? "bg-sky-100 text-sky-800 border border-sky-200"
-                            : log.eventTagType === "danger"
-                            ? "bg-rose-100 text-rose-800 border border-rose-200"
-                            : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                        }`}
-                      >
-                        {log.eventTag}
+                      <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-800 border border-slate-200">
+                        {log.action}
                       </span>
                     </td>
 
-                    {/* Target */}
-                    <td className="py-4 px-4 font-bold text-slate-800">{log.target}</td>
-
                     {/* Details */}
                     <td className="py-4 px-4 text-slate-600 leading-relaxed max-w-sm">
-                      {log.details}
+                      {log.description}
                     </td>
 
-                    {/* IP */}
-                    <td className="py-4 px-4 text-right font-mono text-slate-500 text-[11px]">
-                      {log.ip}
+                    {/* Status */}
+                    <td className="py-4 px-4 text-right">
+                      <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {log.status}
+                      </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
                     Không có nhật ký nào phù hợp với bộ lọc.
                   </td>
                 </tr>

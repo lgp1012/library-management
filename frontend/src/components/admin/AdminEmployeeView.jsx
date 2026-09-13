@@ -14,8 +14,11 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAdmin } from "../../hooks/useAdmin";
+import adminService from "../../services/adminService";
 
-const AdminEmployeeView = ({ employees, setEmployees }) => {
+const AdminEmployeeView = () => {
+  const { employees, setEmployees } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -36,7 +39,7 @@ const AdminEmployeeView = ({ employees, setEmployees }) => {
 
   // Filtered employees list
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
+    return employees?.filter((emp) => {
       // Search term
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -69,7 +72,7 @@ const AdminEmployeeView = ({ employees, setEmployees }) => {
     setFormData({
       name: "",
       email: "",
-      code: `LIB-STAFF-${Math.floor(100 + Math.random() * 900)}`,
+      code: `(Tự động cấp mã)`,
       role: "Librarian",
       department: "Dịch vụ Thư viện & Tra cứu",
       status: "Active",
@@ -92,61 +95,65 @@ const AdminEmployeeView = ({ employees, setEmployees }) => {
   };
 
   // Toggle Employee Lock Status
-  const handleToggleStatus = (empId) => {
-    setEmployees((prev) =>
-      prev.map((emp) => {
-        if (emp.id === empId) {
-          const newStatus = emp.status === "Active" ? "Inactive" : "Active";
-          return { ...emp, status: newStatus };
-        }
-        return emp;
-      })
-    );
+  const handleToggleStatus = async (empId) => {
+    try {
+      await adminService.deactivateEmployee(empId);
+      setEmployees((prev) =>
+        prev.map((emp) => {
+          if (emp.id === empId) {
+            return { ...emp, status: "Inactive" };
+          }
+          return emp;
+        })
+      );
+      alert("Đã hủy kích hoạt tài khoản thành công!");
+    } catch (error) {
+      alert("Lỗi khi hủy kích hoạt: " + (error.response?.data?.message || error.message));
+    }
   };
 
   // Delete Employee
   const handleDeleteEmployee = (empId) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa tài khoản nhân viên này không?")) {
-      setEmployees((prev) => prev.filter((e) => e.id !== empId));
-    }
+    alert("Backend hiện tại chưa hỗ trợ xóa hoàn toàn nhân viên. Vui lòng sử dụng tính năng Ngừng hoạt động (khóa tài khoản).");
   };
 
   // Handle Form Submission (Create or Update)
-  const handleSubmitForm = (e) => {
+  const handleSubmitForm = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
 
     if (editingEmployee) {
-      // Update
-      setEmployees((prev) =>
-        prev.map((emp) =>
-          emp.id === editingEmployee.id
-            ? {
-                ...emp,
-                ...formData,
-              }
-            : emp
-        )
-      );
+      alert("Backend hiện tại chưa hỗ trợ API cập nhật thông tin nhân viên.");
     } else {
-      // Create
-      const initials = formData.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
+      try {
+        const username = formData.email.split('@')[0];
+        const res = await adminService.createEmployee({
+          employeeName: formData.name,
+          username: username,
+          password: "Password123@", // Mặc định
+          email: formData.email,
+          phoneNumber: "",
+          address: formData.department
+        });
 
-      const newEmp = {
-        id: `emp-${Date.now()}`,
-        ...formData,
-        permissionsCount: formData.role === "Super Admin" ? 8 : formData.role === "Librarian" ? 5 : 3,
-        lastActive: "Mới tạo",
-        initials: initials || "NV",
-      };
-      setEmployees((prev) => [newEmp, ...prev]);
+        const newEmp = {
+          id: res.result.employeeId,
+          name: res.result.employeeName,
+          code: res.result.employeeId,
+          email: res.result.email,
+          role: "Thủ thư",
+          department: res.result.address || "Dịch vụ Thư viện",
+          status: res.result.active ? "Active" : "Inactive",
+          permissionsCount: 5,
+          lastActive: "Mới tạo",
+          initials: res.result.employeeName.substring(0, 2).toUpperCase()
+        };
+        setEmployees((prev) => [newEmp, ...prev]);
+        setIsModalOpen(false);
+      } catch (error) {
+        alert("Lỗi tạo nhân viên: " + (error.response?.data?.message || error.message));
+      }
     }
-    setIsModalOpen(false);
   };
 
   return (

@@ -1,10 +1,8 @@
-import { Bell, Check, Search, Shield, Trash2, User } from "lucide-react";
+import { Bell, Check, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import Signout from "../auth/Signout";
 
-const AdminHeader = ({ adminProfile, searchKeyword, setSearchKeyword }) => {
+const AdminHeader = ({ searchKeyword, setSearchKeyword }) => {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [notifications, setNotifications] = useState([
     {
@@ -17,7 +15,8 @@ const AdminHeader = ({ adminProfile, searchKeyword, setSearchKeyword }) => {
     {
       id: "an-2",
       title: "Điều chỉnh quy định",
-      content: "TS. Eleanor Vance vừa cập nhật chính sách mượn trả cho Giảng viên.",
+      content:
+        "TS. Eleanor Vance vừa cập nhật chính sách mượn trả cho Giảng viên.",
       time: "1 giờ trước",
       isUnread: true,
     },
@@ -43,7 +42,7 @@ const AdminHeader = ({ adminProfile, searchKeyword, setSearchKeyword }) => {
             type="text"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="Tìm kiếm nhân viên, quy định mượn, mã Dewey..."
+            placeholder="Tìm kiếm nhân viên, quy định mượn, thể loại ..."
             className="w-full pl-10 pr-4 py-2 bg-sky-900/50 border border-sky-800/80 rounded-xl text-xs text-white placeholder-sky-300/60 outline-none transition focus:border-sky-400 focus:bg-sky-900/90 focus:ring-2 focus:ring-sky-500/20"
           />
         </div>
@@ -51,21 +50,11 @@ const AdminHeader = ({ adminProfile, searchKeyword, setSearchKeyword }) => {
 
       {/* Right Actions: System status, Notifications & Profile */}
       <div className="flex items-center gap-4">
-        {/* System Enforced Status Badge */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs font-semibold">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span>Hệ thống: Hoạt động chuẩn</span>
-        </div>
-
         {/* Notifications Button & Dropdown */}
         <div className="relative">
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
-              setShowProfileMenu(false);
             }}
             className="relative p-2 rounded-xl text-sky-200 hover:bg-sky-900 hover:text-white transition-colors"
             title="Thông báo quản trị"
@@ -127,56 +116,26 @@ const AdminHeader = ({ adminProfile, searchKeyword, setSearchKeyword }) => {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-slate-900">{n.title}</span>
-                        <span className="text-[10px] text-slate-400">{n.time}</span>
+                        <span className="font-bold text-slate-900">
+                          {n.title}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {n.time}
+                        </span>
                       </div>
-                      <p className="text-slate-600 leading-relaxed">{n.content}</p>
+                      <p className="text-slate-600 leading-relaxed">
+                        {n.content}
+                      </p>
                     </div>
                   ))
                 ) : (
                   <div className="py-8 text-center text-slate-400 space-y-2">
                     <Bell className="mx-auto h-8 w-8 text-slate-300 stroke-1" />
-                    <p className="text-xs font-medium">Không có thông báo mới</p>
+                    <p className="text-xs font-medium">
+                      Không có thông báo mới
+                    </p>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* User Profile Badge */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setShowProfileMenu(!showProfileMenu);
-              setShowNotifications(false);
-            }}
-            className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-sky-900 transition-colors"
-          >
-            <div className="h-8 w-8 rounded-full bg-sky-800 text-sky-200 font-bold text-xs flex items-center justify-center border border-sky-400/50">
-              EV
-            </div>
-            <div className="text-left hidden sm:block">
-              <div className="text-xs font-bold text-white leading-tight">
-                {adminProfile?.name || "TS. Eleanor Vance"}
-              </div>
-              <div className="text-[10px] font-medium text-sky-300">
-                {adminProfile?.title || "Super Admin"}
-              </div>
-            </div>
-          </button>
-
-          {/* Profile Menu */}
-          {showProfileMenu && (
-            <div className="absolute right-0 mt-3 w-56 rounded-2xl bg-white text-slate-900 p-2 shadow-2xl border border-slate-100 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <div className="text-xs font-bold text-slate-900">
-                  {adminProfile?.name || "TS. Eleanor Vance"}
-                </div>
-                <div className="text-[11px] text-slate-500">{adminProfile?.email}</div>
-              </div>
-              <div className="py-1">
-                <Signout />
               </div>
             </div>
           )}

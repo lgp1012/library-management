@@ -24,7 +24,9 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const isAuthEndpoint = originalRequest.url.includes("/auth/");
-      if (isAuthEndpoint) {
+      const currentToken = localStorage.getItem("token");
+
+      if (isAuthEndpoint || !currentToken) {
         localStorage.clear();
         throw error;
       }

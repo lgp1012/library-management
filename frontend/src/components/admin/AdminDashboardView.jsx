@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Clock,
   Coins,
-  Edit,
   Layers,
   Plus,
   Shield,
@@ -12,17 +11,62 @@ import {
   Users,
 } from "lucide-react";
 
-const AdminDashboardView = ({
-  kpiMetrics,
-  borrowingRules,
-  auditLogs,
-  onNavigateTab,
-  onEditRule,
-}) => {
+import { useAdmin } from "../../hooks/useAdmin";
+
+const AdminDashboardView = ({ onNavigateTab, onEditRule }) => {
+  const { borrowingRules, auditLogs, employees, shelves, fineSettings } =
+    useAdmin();
+
+  // Tạo KPI động dựa trên dữ liệu thật
+  const kpiMetrics = {
+    authorizedPersonnel: {
+      active: employees?.filter((e) => e.status === "Active").length || 0,
+      registered: employees?.length || 0,
+      auditText: "Đã đồng bộ với CSDL",
+    },
+    borrowingTiers: {
+      activeClasses: borrowingRules?.length || 0,
+      loanCapRange:
+        borrowingRules?.length > 0
+          ? `${borrowingRules[0].maxBooksPerReader || 0} cuốn`
+          : "N/A",
+    },
+    overdueFine: {
+      dailyRateText:
+        fineSettings?.length > 0
+          ? `${fineSettings[0].fineRatePerDay?.toLocaleString("vi-VN")}đ/ngày`
+          : "N/A",
+      maxCapText: "Phạt theo ngày",
+      graceText: fineSettings?.length > 0 ? fineSettings[0].fineType : "N/A",
+    },
+    physicalStacks: {
+      capacityPercent: shelves?.length > 0 ? 50 : 0, // Mock sức chứa vì CSDL chưa có
+      currentCount: shelves?.length || 0,
+      maxCount: 100,
+    },
+  };
+
+  // Helper function to resolve log status colors and avoid nested ternaries (SonarQube S3358)
+  const getLogTagStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case "warning":
+        return "bg-amber-100 text-amber-800";
+      case "danger":
+      case "error":
+        return "bg-rose-100 text-rose-800";
+      case "success":
+        return "bg-emerald-100 text-emerald-800";
+      case "purple":
+        return "bg-indigo-100 text-indigo-800";
+      default:
+        return "bg-sky-100 text-sky-800";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner Card */}
-      <div className="bg-gradient-to-r from-sky-950 via-sky-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-sky-800/50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div className="bg-linear-to-r from-sky-950 via-sky-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-sky-800/50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div className="space-y-2 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-900/80 border border-sky-700/60 text-sky-300 text-xs font-semibold uppercase tracking-wider">
             <Shield className="h-3.5 w-3.5 text-sky-400" />
@@ -32,7 +76,8 @@ const AdminDashboardView = ({
             Tổng quan & Điều hành Hệ thống Thư viện
           </h1>
           <p className="text-sm text-sky-200/80 leading-relaxed">
-            Thống kê vận hành thời gian thực về tài khoản nhân viên, chính sách lưu thông sách, thông số phí phạt quá hạn và hạ tầng kệ sách vật lý.
+            Thống kê vận hành thời gian thực về tài khoản nhân viên, chính sách
+            lưu thông sách, thông số phí phạt quá hạn và hạ tầng kệ sách vật lý.
           </p>
         </div>
 
@@ -76,8 +121,11 @@ const AdminDashboardView = ({
           </div>
           <div>
             <div className="text-2xl font-extrabold text-slate-900">
-              {kpiMetrics?.authorizedPersonnel?.active} / {kpiMetrics?.authorizedPersonnel?.registered}{" "}
-              <span className="text-xs font-semibold text-slate-500">tài khoản</span>
+              {kpiMetrics?.authorizedPersonnel?.active} /{" "}
+              {kpiMetrics?.authorizedPersonnel?.registered}{" "}
+              <span className="text-xs font-semibold text-slate-500">
+                tài khoản
+              </span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -99,10 +147,15 @@ const AdminDashboardView = ({
           <div>
             <div className="text-2xl font-extrabold text-slate-900">
               {kpiMetrics?.borrowingTiers?.activeClasses}{" "}
-              <span className="text-xs font-semibold text-slate-500">nhóm phân loại</span>
+              <span className="text-xs font-semibold text-slate-500">
+                nhóm phân loại
+              </span>
             </div>
             <div className="mt-2 text-xs text-slate-500 font-medium">
-              Hạn mức: <span className="font-bold text-slate-700">{kpiMetrics?.borrowingTiers?.loanCapRange}</span>
+              Hạn mức:{" "}
+              <span className="font-bold text-slate-700">
+                {kpiMetrics?.borrowingTiers?.loanCapRange}
+              </span>
             </div>
           </div>
         </div>
@@ -122,7 +175,8 @@ const AdminDashboardView = ({
               {kpiMetrics?.overdueFine?.dailyRateText}
             </div>
             <div className="mt-2 text-[11px] text-slate-500 font-medium">
-              {kpiMetrics?.overdueFine?.maxCapText} | {kpiMetrics?.overdueFine?.graceText}
+              {kpiMetrics?.overdueFine?.maxCapText} |{" "}
+              {kpiMetrics?.overdueFine?.graceText}
             </div>
           </div>
         </div>
@@ -143,14 +197,17 @@ const AdminDashboardView = ({
                 {kpiMetrics?.physicalStacks?.capacityPercent}%
               </span>
               <span className="text-xs text-slate-500 font-medium">
-                ({kpiMetrics?.physicalStacks?.currentCount}/{kpiMetrics?.physicalStacks?.maxCount})
+                ({kpiMetrics?.physicalStacks?.currentCount}/
+                {kpiMetrics?.physicalStacks?.maxCount})
               </span>
             </div>
             {/* Progress Bar */}
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                style={{ width: `${kpiMetrics?.physicalStacks?.capacityPercent}%` }}
+                style={{
+                  width: `${kpiMetrics?.physicalStacks?.capacityPercent}%`,
+                }}
               ></div>
             </div>
           </div>
@@ -192,25 +249,30 @@ const AdminDashboardView = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {borrowingRules?.slice(0, 4).map((rule) => (
-                    <tr key={rule.id} className="hover:bg-slate-50/80 transition-colors">
+                  {borrowingRules?.map((rule, idx) => (
+                    <tr
+                      key={rule.configId || idx}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
                       <td className="py-3.5 px-2">
-                        <div className="font-bold text-slate-900">{rule.name}</div>
+                        <div className="font-bold text-slate-900">
+                          Quy định chung
+                        </div>
                         <div className="text-[11px] text-slate-400 font-mono">
-                          {rule.tierCode.toLowerCase()}
+                          ALL-TIERS
                         </div>
                       </td>
                       <td className="py-3.5 px-2 text-center font-bold text-sky-900">
-                        {rule.maxBooks} cuốn
+                        {rule.maxBooksPerReader} cuốn
                       </td>
                       <td className="py-3.5 px-2 text-center text-slate-700">
-                        {rule.loanPeriodDays} ngày
+                        {rule.maxBorrowDays} ngày
                       </td>
                       <td className="py-3.5 px-2 text-center text-slate-700">
-                        {rule.renewals} lần
+                        1 lần
                       </td>
                       <td className="py-3.5 px-2 text-center text-slate-700">
-                        {rule.holdShelfDays} ngày
+                        3 ngày
                       </td>
                       <td className="py-3.5 px-2 text-right">
                         <button
@@ -247,40 +309,30 @@ const AdminDashboardView = ({
             </div>
 
             {/* Timeline Feed */}
-            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-95 overflow-y-auto pr-1">
               {auditLogs?.map((log) => (
                 <div
                   key={log.id}
                   className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all space-y-1.5 text-xs"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span
-                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                        log.eventTagType === "warning"
-                          ? "bg-amber-100 text-amber-800"
-                          : log.eventTagType === "purple"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : log.eventTagType === "cyan"
-                          ? "bg-sky-100 text-sky-800"
-                          : log.eventTagType === "danger"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-emerald-100 text-emerald-800"
-                      }`}
+                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${getLogTagStyle(
+                        log.status,
+                      )}`}
                     >
-                      {log.eventTag}
+                      {log.action}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono">
-                      {log.timestamp.split(" ")[1]}
+                      {log.time}
                     </span>
                   </div>
-                  <div className="font-bold text-slate-900">{log.target}</div>
-                  <p className="text-slate-600 text-[11px] leading-relaxed">
-                    {log.details}
-                  </p>
-                  <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-200/50">
-                    <span>Bởi: {log.actor}</span>
-                    <span className="font-mono">IP: {log.ip}</span>
+                  <div className="font-bold text-slate-900">
+                    Admin: {log.admin}
                   </div>
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
+                    {log.description}
+                  </p>
                 </div>
               ))}
             </div>

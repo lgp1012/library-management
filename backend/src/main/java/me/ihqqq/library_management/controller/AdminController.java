@@ -92,10 +92,41 @@ public class AdminController {
     }
 
     @GetMapping("/config/fines")
-    ApiResponse<FineConfigResponse> getFineConfig() {
-        return ApiResponse.<FineConfigResponse>builder()
-                .result(adminService.getFineConfig())
+    ApiResponse<List<FineConfigResponse>> getFineConfigs() {
+        return ApiResponse.<List<FineConfigResponse>>builder()
+                .result(adminService.getFineConfigs())
                 .build();
+    }
+
+    @PostMapping("/config/fines")
+    @ResponseStatus(HttpStatus.CREATED)
+    ApiResponse<FineConfigResponse> createFineConfig(
+            @RequestBody @Valid FineConfigRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.<FineConfigResponse>builder()
+                .result(adminService.createFineConfig(request, authentication.getName()))
+                .build();
+    }
+
+    @PutMapping("/config/fines/{configId}")
+    ApiResponse<FineConfigResponse> updateFineConfigById(
+            @PathVariable String configId,
+            @RequestBody @Valid FineConfigRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.<FineConfigResponse>builder()
+                .result(adminService.updateFineConfigById(configId, request, authentication.getName()))
+                .build();
+    }
+
+    @DeleteMapping("/config/fines/{configId}")
+    ApiResponse<Void> deleteFineConfig(
+            @PathVariable String configId,
+            Authentication authentication
+    ) {
+        adminService.deleteFineConfig(configId, authentication.getName());
+        return ApiResponse.<Void>builder().message("Fine configuration deleted successfully").build();
     }
 
     @PutMapping("/config/fines")

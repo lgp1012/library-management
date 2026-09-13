@@ -1,29 +1,27 @@
 import {
-  AlertCircle,
-  BookOpen,
   Building2,
-  Clock,
   Coins,
   FileText,
   FolderTree,
-  LayoutDashboard,
   Layers,
+  LayoutDashboard,
   Library,
-  LogOut,
   ShieldCheck,
   UserCheck,
   Users,
 } from "lucide-react";
+import { useAdmin } from "../../hooks/useAdmin";
 import Signout from "../auth/Signout";
 
-const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
+const AdminSidebar = ({ activeTab, onTabChange }) => {
+  const { adminProfile, employees, auditLogs, shelves } = useAdmin();
   const menuSections = [
     {
       title: null, // Top single item
       items: [
         {
           id: "dashboard",
-          label: "Tổng quan Dashboard",
+          label: "Dashboard",
           icon: LayoutDashboard,
         },
       ],
@@ -35,14 +33,14 @@ const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
           id: "employees",
           label: "Tài khoản nhân viên",
           icon: Users,
-          badge: "4",
+          badge: employees?.length || 0,
           badgeColor: "bg-sky-900/80 text-sky-200 border border-sky-700/50",
         },
         {
           id: "audit-logs",
-          label: "Nhật ký kiểm toán & Logs",
+          label: "Nhật ký hệ thống",
           icon: FileText,
-          badge: "5",
+          badge: auditLogs?.length || 0,
           badgeColor: "bg-sky-900/80 text-sky-200 border border-sky-700/50",
         },
       ],
@@ -67,12 +65,12 @@ const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
       items: [
         {
           id: "categories",
-          label: "Danh mục & Mã Dewey",
+          label: "Thể loại sách",
           icon: FolderTree,
         },
         {
           id: "authors",
-          label: "Danh mục tác giả",
+          label: "Tác giả",
           icon: UserCheck,
         },
         {
@@ -89,8 +87,8 @@ const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
           id: "shelves",
           label: "Vị trí & Kệ sách",
           icon: Layers,
-          badge: "4 cảnh báo",
-          badgeColor: "bg-amber-500/20 text-amber-300 border border-amber-500/30",
+          badge: shelves?.length || 0,
+          badgeColor: "bg-sky-900/80 text-sky-200 border border-sky-700/50",
         },
       ],
     },
@@ -101,7 +99,7 @@ const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
       {/* Brand Header */}
       <div className="p-5 border-b border-sky-900/60 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white shadow-md">
+          <div className="h-10 w-10 rounded-xl bg-linear-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white shadow-md">
             <Library className="h-5 w-5" />
           </div>
           <div>
@@ -143,7 +141,9 @@ const AdminSidebar = ({ activeTab, onTabChange, adminProfile }) => {
                   <div className="flex items-center gap-3">
                     <Icon
                       className={`h-4 w-4 transition-transform group-hover:scale-110 ${
-                        isActive ? "text-white" : "text-sky-400/80 group-hover:text-sky-300"
+                        isActive
+                          ? "text-white"
+                          : "text-sky-400/80 group-hover:text-sky-300"
                       }`}
                     />
                     <span>{item.label}</span>
