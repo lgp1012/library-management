@@ -37,4 +37,56 @@ public class IdGenerator {
     public static String generateNotificationId() {
         return generateId("N", USER_ID_LENGTH);
     }
+
+    public static String generateEmployeeId() {
+        return generateId("EMP", USER_ID_LENGTH);
+    }
+
+    public static String generateCategoryId() {
+        return generateId("CAT", USER_ID_LENGTH);
+    }
+
+    public static String generateAuthorId() {
+        return generateId("AU", USER_ID_LENGTH);
+    }
+
+    public static String generatePublisherId() {
+        return generateId("PU", USER_ID_LENGTH);
+    }
+
+    public static String generateShelfId() {
+        return generateId("SH", USER_ID_LENGTH);
+    }
+
+    public static String generateBorrowingConfigId() {
+        return generateId("BCF", USER_ID_LENGTH);
+    }
+
+    public static String generateFineConfigId() {
+        return generateId("FCF", USER_ID_LENGTH);
+    }
+
+    public static String generateLogId() {
+        return generateId("L", USER_ID_LENGTH);
+    }
+
+    public static String generateBookId() {
+        return generateId("B", USER_ID_LENGTH);
+    }
+
+    public static String generateCopyId() {
+        return generateId("CP", USER_ID_LENGTH);
+    }
+
+    public static String generateBorrowingId() {
+        return generateId("BR", USER_ID_LENGTH);
+    }
+
+    public static String generateDetailId() {
+        return generateId("DE", USER_ID_LENGTH);
+    }
+
+    public static String generateFineId() {
+        return generateId("F", USER_ID_LENGTH);
+    }
 }

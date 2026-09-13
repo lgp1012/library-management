@@ -45,6 +45,14 @@ public class ApplicationInitConfig {
                                 .build());
                     });
 
+            roleRepository.findByRoleNameIgnoreCase(PredefinedRole.EMPLOYEE_ROLE)
+                    .orElseGet(() -> {
+                        log.info("Seeding role: {}", PredefinedRole.EMPLOYEE_ROLE);
+                        return roleRepository.save(Role.builder()
+                                .roleName(PredefinedRole.EMPLOYEE_ROLE)
+                                .build());
+                    });
+
             if (userRepository.findByUsername(ADMIN_USERNAME).isEmpty()) {
                 String userId;
                 do {

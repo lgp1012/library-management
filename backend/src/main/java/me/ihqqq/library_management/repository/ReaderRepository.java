@@ -12,4 +12,6 @@ public interface ReaderRepository extends JpaRepository<Reader, String> {
     Optional<Reader> findByUser_UserId(String userId);
 
     boolean existsByUser_UserId(String userId);
+
+    boolean existsByUser_Email(String email);
 }
