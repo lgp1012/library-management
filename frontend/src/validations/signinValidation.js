@@ -3,12 +3,12 @@ const usernameValidation = (username) => {
     return "Tên đăng nhập không được để trống";
   }
 
-  if (username.length < 8) {
-    return "Tên đăng nhập phải có ít nhất 8 ký tự";
+  if (username === "admin") {
+    return null; // Allow "admin" as a valid username without further validation
   }
-  const usernameRegex = /^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z0-9]{8,20}$/;
-  if (!usernameRegex.test(username)) {
-    return "Tên đăng nhập phải có cả chữ và số";
+
+  if (username.length < 5) {
+    return "Tên đăng nhập phải có ít nhất 5 ký tự";
   }
   return null;
 };
@@ -16,6 +16,10 @@ const usernameValidation = (username) => {
 const passwordValidation = (password) => {
   if (!password) {
     return "Mật khẩu không được để trống";
+  }
+
+  if (password === "admin") {
+    return null; // Allow "admin" as a valid password without further validation
   }
 
   if (password.length < 6) {

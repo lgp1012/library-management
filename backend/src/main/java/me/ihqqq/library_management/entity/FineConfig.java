@@ -35,7 +35,7 @@ public class FineConfig {
     String configId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "confiig_by_user_id")
+    @JoinColumn(name = "config_by_user_id")
     User configByUser;
 
     @Nationalized
