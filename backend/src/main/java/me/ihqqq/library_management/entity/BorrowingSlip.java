@@ -39,7 +39,7 @@ public class BorrowingSlip {
     @Column(name = "created_by_employee_id", length = 10)
     String createdByEmployeeId;
 
-    @Column(name = "borrow_date", nullable = false)
+    @Column(name = "borrow_date", nullable = false, columnDefinition = "DATETIME")
     LocalDateTime borrowDate;
 
     @Nationalized

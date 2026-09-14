@@ -5,8 +5,8 @@ const authService = {
     const response = await api.post("/auth/token", formData);
     return response.data;
   },
-  signup: async ({ email, username, password }) => {
-    const response = await api.post("/users", { email, username, password });
+  signup: async (formData) => {
+    const response = await api.post("/readers/register", formData);
     return response.data;
   },
   signout: async ({ token }) => {
@@ -18,7 +18,7 @@ const authService = {
     return response.data;
   },
   refreshToken: async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const response = await api.post("/auth/refresh", { token });
     return response.data;
   },

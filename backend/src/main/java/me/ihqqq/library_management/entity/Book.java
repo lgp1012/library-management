@@ -34,7 +34,7 @@ public class Book {
     @JoinColumn(name = "publisher_id")
     Publisher publisher;
 
-    @Column(name = "year")
+    @Column(name = "year", columnDefinition = "SMALLINT")
     Integer year;
 
     @Column(name = "description", columnDefinition = "VARCHAR(MAX)")

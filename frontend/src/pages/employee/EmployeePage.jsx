@@ -20,7 +20,7 @@ const EmployeePage = () => {
     if (currentTabFromUrl && VALID_TABS.includes(currentTabFromUrl)) {
       return currentTabFromUrl;
     }
-    const savedTab = localStorage.getItem("employee_active_tab");
+    const savedTab = sessionStorage.getItem("employee_active_tab");
     if (savedTab && VALID_TABS.includes(savedTab)) {
       return savedTab;
     }
@@ -33,13 +33,13 @@ const EmployeePage = () => {
     if (!currentTabFromUrl || !VALID_TABS.includes(currentTabFromUrl)) {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
-    localStorage.setItem("employee_active_tab", activeTab);
+    sessionStorage.setItem("employee_active_tab", activeTab);
   }, [currentTabFromUrl, activeTab, setSearchParams]);
 
   const handleTabChange = (tabId) => {
     if (VALID_TABS.includes(tabId)) {
       setSearchParams({ tab: tabId });
-      localStorage.setItem("employee_active_tab", tabId);
+      sessionStorage.setItem("employee_active_tab", tabId);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
