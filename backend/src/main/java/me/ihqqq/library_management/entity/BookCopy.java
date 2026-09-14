@@ -34,7 +34,6 @@ public class BookCopy {
     @JoinColumn(name = "book_id", nullable = false)
     Book book;
 
-    @Nationalized
     @Column(name = "status", length = 50, nullable = false)
     String status;
 

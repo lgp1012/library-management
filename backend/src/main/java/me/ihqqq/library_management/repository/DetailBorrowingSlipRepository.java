@@ -11,4 +11,6 @@ public interface DetailBorrowingSlipRepository extends JpaRepository<DetailBorro
     long countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(String readerId);
     List<DetailBorrowingSlip> findByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(String readerId);
     List<DetailBorrowingSlip> findByCopy_CopyIdAndActualReturnDateIsNull(String copyId);
+    List<DetailBorrowingSlip> findByBorrowingSlip_Reader_ReaderIdOrderByExpectedReturnDateDesc(String readerId);
+    List<DetailBorrowingSlip> findByActualReturnDateIsNullOrderByExpectedReturnDateAsc();
 }

@@ -20,7 +20,9 @@ import java.time.LocalDate;
 public class FineNoticeResponse {
     String fineId;
     String detailId;
+    String borrowingId;
     String readerId;
+    String readerName;
     BigDecimal finePrice;
     String reason;
     boolean paidStatus;

@@ -139,12 +139,6 @@ public class AdminController {
                 .build();
     }
 
-    @GetMapping("/categories")
-    ApiResponse<List<CategoryResponse>> getCategories() {
-        return ApiResponse.<List<CategoryResponse>>builder()
-                .result(adminService.getCategories())
-                .build();
-    }
 
     @PostMapping("/categories")
     @ResponseStatus(HttpStatus.CREATED)
@@ -177,12 +171,6 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Category deleted successfully").build();
     }
 
-    @GetMapping("/authors")
-    ApiResponse<List<AuthorResponse>> getAuthors() {
-        return ApiResponse.<List<AuthorResponse>>builder()
-                .result(adminService.getAuthors())
-                .build();
-    }
 
     @PostMapping("/authors")
     @ResponseStatus(HttpStatus.CREATED)
@@ -215,12 +203,7 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Author deleted successfully").build();
     }
 
-    @GetMapping("/publishers")
-    ApiResponse<List<PublisherResponse>> getPublishers() {
-        return ApiResponse.<List<PublisherResponse>>builder()
-                .result(adminService.getPublishers())
-                .build();
-    }
+
 
     @PostMapping("/publishers")
     @ResponseStatus(HttpStatus.CREATED)
@@ -253,12 +236,7 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Publisher deleted successfully").build();
     }
 
-    @GetMapping("/shelves")
-    ApiResponse<List<ShelfResponse>> getShelves() {
-        return ApiResponse.<List<ShelfResponse>>builder()
-                .result(adminService.getShelves())
-                .build();
-    }
+
 
     @PostMapping("/shelves")
     @ResponseStatus(HttpStatus.CREATED)
