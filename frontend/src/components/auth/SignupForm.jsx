@@ -25,6 +25,7 @@ const SignupForm = () => {
 
   // State to manage form data
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     username: "",
     password: "",

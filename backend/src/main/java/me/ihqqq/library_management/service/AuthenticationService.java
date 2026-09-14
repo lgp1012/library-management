@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -69,6 +70,9 @@ public class AuthenticationService {
         if (!user.isActive()) {
             throw new AppException(ErrorCode.USER_INACTIVE);
         }
+
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
 
         String token = generateToken(user);
 

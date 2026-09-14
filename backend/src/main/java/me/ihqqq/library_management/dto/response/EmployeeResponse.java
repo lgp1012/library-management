@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @Builder
@@ -23,4 +25,5 @@ public class EmployeeResponse {
     String username;
     String email;
     boolean active;
+    LocalDateTime lastLoginAt;
 }

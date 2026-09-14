@@ -26,7 +26,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final String[] publicPostEndpoints = {
-            "/users",
             "/readers/register",
             "/auth/token",
             "/auth/introspect",

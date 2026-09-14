@@ -10,7 +10,7 @@ const api = axios.create({
 
 //REQUEST INTERCEPTOR - Add authorization header to all requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -24,10 +24,10 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const isAuthEndpoint = originalRequest.url.includes("/auth/");
-      const currentToken = localStorage.getItem("token");
+      const currentToken = sessionStorage.getItem("token");
 
       if (isAuthEndpoint || !currentToken) {
-        localStorage.clear();
+        sessionStorage.clear();
         throw error;
       }
       originalRequest._retry = true;
@@ -37,12 +37,12 @@ api.interceptors.response.use(
 
         const newToken = data.result.token;
 
-        localStorage.setItem("token", newToken);
+        sessionStorage.setItem("token", newToken);
 
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.clear();
+        sessionStorage.clear();
         throw refreshError;
       }
     }

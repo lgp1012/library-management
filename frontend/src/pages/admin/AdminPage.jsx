@@ -32,12 +32,12 @@ const AdminPage = () => {
   // Read tab parameter from URL
   const currentTabFromUrl = searchParams.get("tab");
 
-  // Determine active tab: URL query param -> localStorage -> default to "dashboard"
+  // Determine active tab: URL query param -> sessionStorage -> default to "dashboard"
   const activeTab = (() => {
     if (currentTabFromUrl && VALID_TABS.includes(currentTabFromUrl)) {
       return currentTabFromUrl;
     }
-    const savedTab = localStorage.getItem("admin_active_tab");
+    const savedTab = sessionStorage.getItem("admin_active_tab");
     if (savedTab && VALID_TABS.includes(savedTab)) {
       return savedTab;
     }
@@ -46,19 +46,19 @@ const AdminPage = () => {
 
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  // Keep URL and localStorage synchronized
+  // Keep URL and sessionStorage synchronized
   useEffect(() => {
     if (!currentTabFromUrl || !VALID_TABS.includes(currentTabFromUrl)) {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
-    localStorage.setItem("admin_active_tab", activeTab);
+    sessionStorage.setItem("admin_active_tab", activeTab);
   }, [currentTabFromUrl, activeTab, setSearchParams]);
 
   // Quick navigation handler from sidebar, dashboard, or header
   const handleTabChange = (tabId) => {
     if (VALID_TABS.includes(tabId)) {
       setSearchParams({ tab: tabId });
-      localStorage.setItem("admin_active_tab", tabId);
+      sessionStorage.setItem("admin_active_tab", tabId);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
