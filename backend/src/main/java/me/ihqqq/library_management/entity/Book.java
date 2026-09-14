@@ -27,7 +27,6 @@ public class Book {
     @Column(name = "book_id", length = 10)
     String bookId;
 
-    @Nationalized
     @Column(name = "book_name", length = 100, nullable = false)
     String bookName;
 
@@ -38,7 +37,7 @@ public class Book {
     @Column(name = "year")
     Integer year;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "description", columnDefinition = "VARCHAR(MAX)")
     String description;
 
     @ManyToMany

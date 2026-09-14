@@ -12,4 +12,6 @@ public interface FineNoticeRepository extends JpaRepository<FineNotice, String> 
     boolean existsByDetail_BorrowingSlip_Reader_ReaderIdAndPaidStatusFalse(String readerId);
 
     boolean existsByDetail_Copy_Book_BookId(String bookId);
+
+    List<FineNotice> findAllByOrderByPaidStatusAscFineIdDesc();
 }

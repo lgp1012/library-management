@@ -17,7 +17,7 @@ const adminService = {
 
   // --- CATEGORIES ---
   listCategories: async () => {
-    const res = await api.get("/admin/categories");
+    const res = await api.get("/categories");
     return res.data;
   },
   createCategory: async (categoryData) => {
@@ -35,7 +35,7 @@ const adminService = {
 
   // --- AUTHORS ---
   listAuthors: async () => {
-    const res = await api.get("/admin/authors");
+    const res = await api.get("/authors");
     return res.data;
   },
   createAuthor: async (authorData) => {
@@ -53,7 +53,7 @@ const adminService = {
 
   // --- PUBLISHERS ---
   listPublishers: async () => {
-    const res = await api.get("/admin/publishers");
+    const res = await api.get("/publishers");
     return res.data;
   },
   createPublisher: async (publisherData) => {
@@ -74,7 +74,7 @@ const adminService = {
 
   // --- SHELVES ---
   listShelves: async () => {
-    const res = await api.get("/admin/shelves");
+    const res = await api.get("/shelves");
     return res.data;
   },
   createShelf: async (shelfData) => {
