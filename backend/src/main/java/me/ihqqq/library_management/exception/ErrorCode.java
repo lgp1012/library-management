@@ -62,6 +62,7 @@ public enum ErrorCode {
     FINE_RATE_REQUIRED(1715, "Fine rate is required", HttpStatus.BAD_REQUEST),
     FINE_RATE_INVALID(1716, "Fine rate must be greater than zero and have at most two decimal places", HttpStatus.BAD_REQUEST),
     FINE_DESCRIPTION_TOO_LONG(1717, "Fine description must not exceed 500 characters", HttpStatus.BAD_REQUEST),
+    FINE_CONFIG_TYPE_EXISTED(1718, "Fine configuration for this fine type already exists", HttpStatus.BAD_REQUEST),
 
     CATEGORY_NOT_FOUND(1720, "Category not found", HttpStatus.NOT_FOUND),
     CATEGORY_NAME_REQUIRED(1721, "Category name is required", HttpStatus.BAD_REQUEST),

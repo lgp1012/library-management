@@ -13,12 +13,16 @@ import me.ihqqq.library_management.dto.request.ReaderAdminUpdateRequest;
 import me.ihqqq.library_management.dto.request.ReaderRegistrationRequest;
 import me.ihqqq.library_management.dto.request.ReturnBookRequest;
 import me.ihqqq.library_management.dto.response.ApiResponse;
+import me.ihqqq.library_management.dto.response.AuthorResponse;
 import me.ihqqq.library_management.dto.response.BookCopyResponse;
 import me.ihqqq.library_management.dto.response.BookResponse;
+import me.ihqqq.library_management.dto.response.CategoryResponse;
 import me.ihqqq.library_management.dto.response.EmployeeOperationResponse;
 import me.ihqqq.library_management.dto.response.FineNoticeResponse;
+import me.ihqqq.library_management.dto.response.PublisherResponse;
 import me.ihqqq.library_management.dto.response.ReaderResponse;
 import me.ihqqq.library_management.dto.response.ReservationResponse;
+import me.ihqqq.library_management.dto.response.ShelfResponse;
 import me.ihqqq.library_management.service.EmployeeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -164,6 +168,13 @@ public class EmployeeController {
                 .build();
     }
 
+    @GetMapping("/fines")
+    ApiResponse<List<FineNoticeResponse>> getAllFines() {
+        return ApiResponse.<List<FineNoticeResponse>>builder()
+                .result(employeeService.getAllFines())
+                .build();
+    }
+
     @GetMapping("/fines/readers/{readerId}")
     ApiResponse<List<FineNoticeResponse>> getFines(@PathVariable String readerId) {
         return ApiResponse.<List<FineNoticeResponse>>builder()
@@ -216,6 +227,20 @@ public class EmployeeController {
         return ApiResponse.<Integer>builder()
                 .result(employeeService.expireReservations(authentication.getName()))
                 .message("Expired reservations processed successfully")
+                .build();
+    }
+
+    @GetMapping("/borrowings/active")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>> getAllActiveBorrowings() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>>builder()
+                .result(employeeService.getAllActiveBorrowings())
+                .build();
+    }
+
+    @GetMapping("/readers/{readerId}/borrowings")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>> getReaderBorrowings(@PathVariable String readerId) {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>>builder()
+                .result(employeeService.getReaderBorrowings(readerId))
                 .build();
     }
 }

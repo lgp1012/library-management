@@ -1,7 +1,8 @@
 import { Eye, EyeOff, Loader, LockKeyhole, User } from "lucide-react";
-import {useState} from "react";
-import { Link} from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
+import { getSigninErrorMessage } from "../../utils/errorMessage";
 import {
   passwordValidation,
   usernameValidation,
@@ -71,9 +72,8 @@ const SigninForm = () => {
     try {
       setLoading(true);
       await signin(formData);
- 
     } catch (error) {
-      setErrorAPI(error.message);
+      setErrorAPI(getSigninErrorMessage(error));
     } finally {
       setLoading(false);
     }

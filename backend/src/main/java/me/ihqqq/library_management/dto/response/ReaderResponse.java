@@ -25,4 +25,5 @@ public class ReaderResponse {
     String username;
     String email;
     boolean active;
+    long currentlyBorrowedBooks;
 }

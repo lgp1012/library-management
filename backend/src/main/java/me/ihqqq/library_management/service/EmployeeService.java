@@ -104,7 +104,15 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<ReaderResponse> getReaders() {
-        return readerRepository.findAll().stream().map(readerMapper::toReaderResponse).toList();
+        List<ReaderResponse> responses = readerRepository.findAll().stream()
+                .map(readerMapper::toReaderResponse)
+                .toList();
+        for (ReaderResponse response : responses) {
+            response.setCurrentlyBorrowedBooks(
+                    detailBorrowingSlipRepository.countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(response.getReaderId())
+            );
+        }
+        return responses;
     }
 
     @Transactional
@@ -398,6 +406,14 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
+    public List<FineNoticeResponse> getAllFines() {
+        return fineNoticeRepository.findAllByOrderByPaidStatusAscFineIdDesc()
+                .stream()
+                .map(this::toFineResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<FineNoticeResponse> getFines(String readerId) {
         return fineNoticeRepository.findByDetail_BorrowingSlip_Reader_ReaderIdOrderByPaidStatusAscFineIdAsc(readerId)
                 .stream().map(this::toFineResponse).toList();
@@ -627,7 +643,9 @@ public class EmployeeService {
         return FineNoticeResponse.builder()
                 .fineId(fine.getFineId())
                 .detailId(fine.getDetail().getDetailId())
+                .borrowingId(fine.getDetail().getBorrowingSlip().getBorrowingId())
                 .readerId(fine.getDetail().getBorrowingSlip().getReader().getReaderId())
+                .readerName(fine.getDetail().getBorrowingSlip().getReader().getReaderName())
                 .finePrice(fine.getFinePrice())
                 .reason(fine.getReason())
                 .paidStatus(fine.isPaidStatus())
@@ -706,5 +724,37 @@ public class EmployeeService {
             id = IdGenerator.generateLogId();
         } while (systemLogRepository.existsById(id));
         return id;
+    }
+
+    public List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse> getAllActiveBorrowings() {
+        return detailBorrowingSlipRepository.findByActualReturnDateIsNullOrderByExpectedReturnDateAsc()
+                .stream()
+                .map(this::toDetailBorrowingSlipResponse)
+                .toList();
+    }
+
+    public List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse> getReaderBorrowings(String readerId) {
+        if (!readerRepository.existsById(readerId)) {
+            throw new AppException(ErrorCode.READER_NOT_FOUND);
+        }
+        return detailBorrowingSlipRepository.findByBorrowingSlip_Reader_ReaderIdOrderByExpectedReturnDateDesc(readerId)
+                .stream()
+                .map(this::toDetailBorrowingSlipResponse)
+                .toList();
+    }
+
+    private me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse toDetailBorrowingSlipResponse(me.ihqqq.library_management.entity.DetailBorrowingSlip detail) {
+        return me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse.builder()
+                .detailId(detail.getDetailId())
+                .borrowingId(detail.getBorrowingSlip().getBorrowingId())
+                .readerId(detail.getBorrowingSlip().getReader().getReaderId())
+                .readerName(detail.getBorrowingSlip().getReader().getReaderName())
+                .copyId(detail.getCopy().getCopyId())
+                .bookId(detail.getCopy().getBook().getBookId())
+                .bookName(detail.getCopy().getBook().getBookName())
+                .borrowingDate(detail.getBorrowingSlip().getBorrowDate().toLocalDate())
+                .expectedReturnDate(detail.getExpectedReturnDate())
+                .actualReturnDate(detail.getActualReturnDate())
+                .build();
     }
 }

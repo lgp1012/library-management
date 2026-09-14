@@ -19,9 +19,12 @@ import java.time.LocalDate;
 public class DetailBorrowingSlipResponse {
     String detailId;
     String borrowingId;
+    String readerId;
+    String readerName;
     String copyId;
     String bookId;
     String bookName;
+    LocalDate borrowingDate;
     LocalDate expectedReturnDate;
     LocalDate actualReturnDate;
 }

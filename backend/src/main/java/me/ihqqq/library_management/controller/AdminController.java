@@ -92,10 +92,41 @@ public class AdminController {
     }
 
     @GetMapping("/config/fines")
-    ApiResponse<FineConfigResponse> getFineConfig() {
-        return ApiResponse.<FineConfigResponse>builder()
-                .result(adminService.getFineConfig())
+    ApiResponse<List<FineConfigResponse>> getFineConfigs() {
+        return ApiResponse.<List<FineConfigResponse>>builder()
+                .result(adminService.getFineConfigs())
                 .build();
+    }
+
+    @PostMapping("/config/fines")
+    @ResponseStatus(HttpStatus.CREATED)
+    ApiResponse<FineConfigResponse> createFineConfig(
+            @RequestBody @Valid FineConfigRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.<FineConfigResponse>builder()
+                .result(adminService.createFineConfig(request, authentication.getName()))
+                .build();
+    }
+
+    @PutMapping("/config/fines/{configId}")
+    ApiResponse<FineConfigResponse> updateFineConfigById(
+            @PathVariable String configId,
+            @RequestBody @Valid FineConfigRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.<FineConfigResponse>builder()
+                .result(adminService.updateFineConfigById(configId, request, authentication.getName()))
+                .build();
+    }
+
+    @DeleteMapping("/config/fines/{configId}")
+    ApiResponse<Void> deleteFineConfig(
+            @PathVariable String configId,
+            Authentication authentication
+    ) {
+        adminService.deleteFineConfig(configId, authentication.getName());
+        return ApiResponse.<Void>builder().message("Fine configuration deleted successfully").build();
     }
 
     @PutMapping("/config/fines")
@@ -108,12 +139,6 @@ public class AdminController {
                 .build();
     }
 
-    @GetMapping("/categories")
-    ApiResponse<List<CategoryResponse>> getCategories() {
-        return ApiResponse.<List<CategoryResponse>>builder()
-                .result(adminService.getCategories())
-                .build();
-    }
 
     @PostMapping("/categories")
     @ResponseStatus(HttpStatus.CREATED)
@@ -146,12 +171,6 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Category deleted successfully").build();
     }
 
-    @GetMapping("/authors")
-    ApiResponse<List<AuthorResponse>> getAuthors() {
-        return ApiResponse.<List<AuthorResponse>>builder()
-                .result(adminService.getAuthors())
-                .build();
-    }
 
     @PostMapping("/authors")
     @ResponseStatus(HttpStatus.CREATED)
@@ -184,12 +203,7 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Author deleted successfully").build();
     }
 
-    @GetMapping("/publishers")
-    ApiResponse<List<PublisherResponse>> getPublishers() {
-        return ApiResponse.<List<PublisherResponse>>builder()
-                .result(adminService.getPublishers())
-                .build();
-    }
+
 
     @PostMapping("/publishers")
     @ResponseStatus(HttpStatus.CREATED)
@@ -222,12 +236,7 @@ public class AdminController {
         return ApiResponse.<Void>builder().message("Publisher deleted successfully").build();
     }
 
-    @GetMapping("/shelves")
-    ApiResponse<List<ShelfResponse>> getShelves() {
-        return ApiResponse.<List<ShelfResponse>>builder()
-                .result(adminService.getShelves())
-                .build();
-    }
+
 
     @PostMapping("/shelves")
     @ResponseStatus(HttpStatus.CREATED)

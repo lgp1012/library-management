@@ -1,6 +1,6 @@
 package me.ihqqq.library_management.dto.request;
 
-import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -26,7 +26,7 @@ public class ReaderAdminUpdateRequest {
     @Size(max = 20, message = "PHONE_NUMBER_TOO_LONG")
     String phoneNumber;
 
-    @PastOrPresent(message = "MEMBERSHIP_EXPIRY_INVALID")
+    @FutureOrPresent(message = "MEMBERSHIP_EXPIRY_INVALID")
     LocalDate membershipExpiry;
 
     Boolean active;
