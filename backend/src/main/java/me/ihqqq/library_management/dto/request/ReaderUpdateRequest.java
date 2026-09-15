@@ -22,4 +22,7 @@ public class ReaderUpdateRequest {
 
     @Size(max = 20, message = "PHONE_NUMBER_TOO_LONG")
     String phoneNumber;
+
+    @Size(max = 100, message = "EMAIL_TOO_LONG")
+    String email;
 }

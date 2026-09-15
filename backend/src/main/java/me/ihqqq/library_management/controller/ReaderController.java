@@ -120,6 +120,14 @@ public class ReaderController {
                 .build();
     }
 
+        @GetMapping("/me/fines")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<me.ihqqq.library_management.dto.response.FineNoticeResponse>> getMyFines(Authentication authentication) {
+        return ApiResponse.<java.util.List<me.ihqqq.library_management.dto.response.FineNoticeResponse>>builder()
+                .result(readerService.getMyFines(authentication.getName()))
+                .build();
+    }
+
     @PatchMapping("/me/notifications/{notificationId}/read")
     @PreAuthorize("hasRole('READER')")
     ApiResponse<Void> markNotificationAsRead(Authentication authentication,
@@ -128,3 +136,4 @@ public class ReaderController {
         return ApiResponse.<Void>builder().build();
     }
 }
+

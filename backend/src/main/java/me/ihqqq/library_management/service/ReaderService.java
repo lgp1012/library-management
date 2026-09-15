@@ -159,6 +159,9 @@ public class ReaderService {
             if (request.getPhoneNumber() != null) {
                 reader.setPhoneNumber(request.getPhoneNumber());
             }
+            if (request.getEmail() != null) {
+                reader.getUser().setEmail(request.getEmail());
+            }
             Reader saved = readerRepository.save(reader);
             userRepository.save(reader.getUser());
             log.info("Reader profile updated: {}", saved.getReaderId());
@@ -359,6 +362,24 @@ public class ReaderService {
         });
     }
 
+        public java.util.List<me.ihqqq.library_management.dto.response.FineNoticeResponse> getMyFines(String username) {
+        Reader reader = getReaderByUsername(username);
+        return fineNoticeRepository.findByDetail_BorrowingSlip_Reader_ReaderIdOrderByPaidStatusAscFineIdAsc(reader.getReaderId())
+                .stream()
+                .map(fine -> me.ihqqq.library_management.dto.response.FineNoticeResponse.builder()
+                        .fineId(fine.getFineId())
+                        .detailId(fine.getDetail().getDetailId())
+                        .borrowingId(fine.getDetail().getBorrowingSlip().getBorrowingId())
+                        .readerId(fine.getDetail().getBorrowingSlip().getReader().getReaderId())
+                        .readerName(fine.getDetail().getBorrowingSlip().getReader().getReaderName())
+                        .finePrice(fine.getFinePrice())
+                        .reason(fine.getReason())
+                        .paidStatus(fine.isPaidStatus())
+                        .paidDate(fine.getPaidDate())
+                        .build())
+                .toList();
+    }
+
     private Reader getReaderByUsername(String username) {
         return readerRepository.findByUser_Username(username)
                 .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
@@ -419,3 +440,5 @@ public class ReaderService {
         return id;
     }
 }
+
+
