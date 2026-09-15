@@ -52,7 +52,7 @@ const CatalogBookCard = ({ book }) => {
             {/* Shelf Location Overlay */}
             <div className="absolute bottom-2.5 right-2.5 z-10">
               <span className="inline-flex items-center gap-1 rounded-md bg-slate-900/80 px-2 py-1 text-[10px] font-mono text-white backdrop-blur-md border border-white/20">
-                {book.shelfLocation}
+                {book.shelfLocation || (book.shelf && book.zone ? `Kệ ${book.shelf} - Khu ${book.zone}` : "Chưa rõ")}
               </span>
             </div>
           </div>
@@ -71,7 +71,7 @@ const CatalogBookCard = ({ book }) => {
           </p>
 
           <p className="mt-0.5 text-xs font-semibold text-slate-700">
-            Năm XB: <span className="font-medium text-slate-600">{book.year}</span>
+            Năm XB: <span className="font-medium text-slate-600">{book.year || book.publishYear || "Chưa rõ"}</span>
           </p>
 
 

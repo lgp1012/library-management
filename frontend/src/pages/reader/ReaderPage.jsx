@@ -8,6 +8,7 @@ import ReaderDashboardView from "../../components/reader/ReaderDashboardView";
 import ReaderBorrowedView from "../../components/reader/ReaderBorrowedView";
 import ReaderReservationView from "../../components/reader/ReaderReservationView";
 import ReaderHistoryView from "../../components/reader/ReaderHistoryView";
+import ReaderProfileView from "../../components/reader/ReaderProfileView";
 
 export default function ReaderPage() {
   const [activeTab, setActiveTab] = useState("explore");
@@ -26,6 +27,7 @@ export default function ReaderPage() {
         {activeTab === "borrows" && <ReaderBorrowedView />}
         {activeTab === "reservations" && <ReaderReservationView />}
         {activeTab === "history" && <ReaderHistoryView />}
+        {activeTab === "profile" && <ReaderProfileView />}
       </main>
 
       <Footer />

@@ -43,12 +43,15 @@ export const ReaderProvider = ({ children }) => {
           ...READER_PROFILE,
           name: p.readerName,
           cardNumber: p.readerId,
+          email: p.email,
+          phone: p.phoneNumber,
           status: p.active ? "Đang hoạt động" : "Đang khóa",
           currentBorrows: p.currentlyBorrowedBooks || 0,
           maxBorrows: configData.result?.maxBooksPerReader ?? "Chưa có thông tin",
           nearestDueDate: formattedDate,
           daysRemaining: daysRemaining,
           unpaidFine: (p.unpaidFine || 0).toLocaleString("vi-VN") + " đ",
+          hasUnpaidFine: p.unpaidFine > 0,
           accountStatus:
             p.unpaidFine > 0 ? "Có nợ phạt" : "Tài khoản chuẩn mực",
         });

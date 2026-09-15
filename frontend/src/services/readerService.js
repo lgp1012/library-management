@@ -49,6 +49,16 @@ const readerService = {
   getBorrowingConfig: async () => {
     const res = await api.get("/config/borrowing");
     return res.data;
+  },
+
+  updateProfile: async (data) => {
+    const res = await api.put("/readers/me", data);
+    return res.data;
+  },
+
+  getMyFines: async () => {
+    const res = await api.get("/readers/me/fines");
+    return res.data;
   }
 };
 
