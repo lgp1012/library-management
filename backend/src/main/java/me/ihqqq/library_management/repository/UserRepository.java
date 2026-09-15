@@ -1,7 +1,11 @@
 package me.ihqqq.library_management.repository;
 
+import jakarta.persistence.LockModeType;
 import me.ihqqq.library_management.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -12,4 +16,16 @@ public interface UserRepository extends JpaRepository<User, String> {
     boolean existsByEmail(String email);
 
     Optional<User> findByUsername(String username);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from User user where user.username = :username")
+    Optional<User> findByUsernameForUpdate(@Param("username") String username);
+
+    @Query(value = """
+            select count(*)
+            from users with (updlock, holdlock)
+            where username = :username or email = :email
+            """, nativeQuery = true)
+    long countRegistrationConflictsForUpdate(@Param("username") String username,
+                                             @Param("email") String email);
 }
