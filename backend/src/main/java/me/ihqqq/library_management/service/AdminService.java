@@ -184,6 +184,21 @@ public class AdminService {
         });
     }
 
+    @Transactional
+    public void deleteFineConfig(String configId, String adminUsername) {
+        FineConfig config = fineConfigRepository.findById(configId)
+                .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
+        fineConfigRepository.delete(config);
+        writeLog(adminUsername, "Deleted fine configuration " + configId);
+    }
+
+    @Transactional
+    public FineConfigResponse updateFineConfig(FineConfigRequest request, String adminUsername) {
+        return fineConfigRepository.findByFineTypeIgnoreCase(request.getFineType())
+                .map(existing -> updateFineConfigById(existing.getConfigId(), request, adminUsername))
+                .orElseGet(() -> createFineConfig(request, adminUsername));
+    }
+
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategories() {
         return categoryRepository.findAll().stream().map(this::toCategoryResponse).toList();

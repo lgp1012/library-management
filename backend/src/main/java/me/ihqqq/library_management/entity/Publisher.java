@@ -28,6 +28,6 @@ public class Publisher {
     String publisherId;
 
     @Nationalized
-    @Column(name = "publisher_name", length = 100, nullable = false)
+    @Column(name = "publisher_name", length = 200, nullable = false)
     String publisherName;
 }

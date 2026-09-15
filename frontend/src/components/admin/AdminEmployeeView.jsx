@@ -1,18 +1,4 @@
-import {
-  CheckCircle,
-  Edit,
-  Filter,
-  Key,
-  Lock,
-  Plus,
-  Power,
-  Search,
-  Shield,
-  Trash2,
-  Unlock,
-  UserPlus,
-  X,
-} from "lucide-react";
+import { Edit, Power, Search, Shield, UserPlus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAdmin } from "../../hooks/useAdmin";
 import adminService from "../../services/adminService";
@@ -20,7 +6,6 @@ import adminService from "../../services/adminService";
 const AdminEmployeeView = () => {
   const { employees, setEmployees } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRole, setSelectedRole] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
   // Modal State for Create/Edit
@@ -31,10 +16,10 @@ const AdminEmployeeView = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    code: "",
-    role: "Librarian",
-    department: "Dịch vụ Thư viện",
-    status: "Active",
+    username: "",
+    password: "",
+    phoneNumber: "",
+    address: "",
   });
 
   // Filtered employees list
@@ -52,11 +37,6 @@ const AdminEmployeeView = () => {
         }
       }
 
-      // Role Filter
-      if (selectedRole !== "ALL" && emp.role !== selectedRole) {
-        return false;
-      }
-
       // Status Filter
       if (selectedStatus !== "ALL" && emp.status !== selectedStatus) {
         return false;
@@ -64,7 +44,7 @@ const AdminEmployeeView = () => {
 
       return true;
     });
-  }, [employees, searchTerm, selectedRole, selectedStatus]);
+  }, [employees, searchTerm, selectedStatus]);
 
   // Open Create Modal
   const handleOpenCreateModal = () => {
@@ -72,10 +52,10 @@ const AdminEmployeeView = () => {
     setFormData({
       name: "",
       email: "",
-      code: `(Tự động cấp mã)`,
-      role: "Librarian",
-      department: "Dịch vụ Thư viện & Tra cứu",
-      status: "Active",
+      username: "",
+      password: "",
+      phoneNumber: "",
+      address: "",
     });
     setIsModalOpen(true);
   };
@@ -86,10 +66,10 @@ const AdminEmployeeView = () => {
     setFormData({
       name: emp.name,
       email: emp.email,
-      code: emp.code,
-      role: emp.role,
-      department: emp.department,
-      status: emp.status,
+      username: "",
+      password: "",
+      phoneNumber: emp.phoneNumber || "",
+      address: emp.department || "",
     });
     setIsModalOpen(true);
   };
@@ -104,17 +84,15 @@ const AdminEmployeeView = () => {
             return { ...emp, status: "Inactive" };
           }
           return emp;
-        })
+        }),
       );
       alert("Đã hủy kích hoạt tài khoản thành công!");
     } catch (error) {
-      alert("Lỗi khi hủy kích hoạt: " + (error.response?.data?.message || error.message));
+      alert(
+        "Lỗi khi hủy kích hoạt: " +
+          (error.response?.data?.message || error.message),
+      );
     }
-  };
-
-  // Delete Employee
-  const handleDeleteEmployee = (empId) => {
-    alert("Backend hiện tại chưa hỗ trợ xóa hoàn toàn nhân viên. Vui lòng sử dụng tính năng Ngừng hoạt động (khóa tài khoản).");
   };
 
   // Handle Form Submission (Create or Update)
@@ -126,14 +104,13 @@ const AdminEmployeeView = () => {
       alert("Backend hiện tại chưa hỗ trợ API cập nhật thông tin nhân viên.");
     } else {
       try {
-        const username = formData.email.split('@')[0];
         const res = await adminService.createEmployee({
           employeeName: formData.name,
-          username: username,
-          password: "Password123@", // Mặc định
+          username: formData.username,
+          password: formData.password,
           email: formData.email,
-          phoneNumber: "",
-          address: formData.department
+          phoneNumber: formData.phoneNumber,
+          address: formData.address,
         });
 
         const newEmp = {
@@ -142,16 +119,19 @@ const AdminEmployeeView = () => {
           code: res.result.employeeId,
           email: res.result.email,
           role: "Thủ thư",
-          department: res.result.address || "Dịch vụ Thư viện",
+          department: res.result.address || "",
           status: res.result.active ? "Active" : "Inactive",
           permissionsCount: 5,
-          lastActive: "Mới tạo",
-          initials: res.result.employeeName.substring(0, 2).toUpperCase()
+          lastActive: "Chưa ghi nhận",
+          initials: res.result.employeeName.substring(0, 2).toUpperCase(),
         };
         setEmployees((prev) => [newEmp, ...prev]);
         setIsModalOpen(false);
       } catch (error) {
-        alert("Lỗi tạo nhân viên: " + (error.response?.data?.message || error.message));
+        alert(
+          "Lỗi tạo nhân viên: " +
+            (error.response?.data?.message || error.message),
+        );
       }
     }
   };
@@ -163,10 +143,11 @@ const AdminEmployeeView = () => {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="h-6 w-6 text-sky-600" />
-            <span>Quản lý Tài khoản & Phân quyền Nhân viên</span>
+            <span>Quản lý tài khoản nhân viên tại quầy</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Cấp tài khoản nhân sự, phân quyền vai trò tổ chức, quản lý đặc quyền hệ thống và kiểm soát vòng đời tài khoản.
+            Cấp tài khoản nhân sự, phân quyền vai trò tổ chức, quản lý đặc quyền
+            hệ thống và kiểm soát vòng đời tài khoản.
           </p>
         </div>
         <button
@@ -194,23 +175,6 @@ const AdminEmployeeView = () => {
 
         {/* Filters Dropdowns */}
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Role Filter */}
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <span>Vai trò:</span>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold outline-none focus:border-sky-500"
-            >
-              <option value="ALL">Tất cả vai trò</option>
-              <option value="Super Admin">Super Admin</option>
-              <option value="Librarian">Librarian (Thủ thư)</option>
-              <option value="Cataloger">Cataloger (Biên mục)</option>
-              <option value="Circulation Staff">Circulation Staff (Lưu thông)</option>
-            </select>
-          </div>
-
           {/* Status Filter */}
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
             <span>Trạng thái:</span>
@@ -219,7 +183,7 @@ const AdminEmployeeView = () => {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold outline-none focus:border-sky-500"
             >
-              <option value="ALL">Tất cả trạng thái</option>
+              <option value="ALL">Tất cả</option>
               <option value="Active">Hoạt động (Active)</option>
               <option value="Inactive">Ngừng hoạt động (Inactive)</option>
               <option value="Suspended">Tạm khóa (Suspended)</option>
@@ -236,10 +200,10 @@ const AdminEmployeeView = () => {
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                 <th className="py-3.5 px-4">Nhân viên</th>
                 <th className="py-3.5 px-4">Mã NV</th>
-                <th className="py-3.5 px-4">Vai trò</th>
-                <th className="py-3.5 px-4">Phòng ban</th>
+
+                <th className="py-3.5 px-4">Địa chỉ</th>
                 <th className="py-3.5 px-4">Trạng thái</th>
-                <th className="py-3.5 px-4">Quyền hạn</th>
+
                 <th className="py-3.5 px-4">Hoạt động cuối</th>
                 <th className="py-3.5 px-4 text-right">Thao tác</th>
               </tr>
@@ -247,7 +211,10 @@ const AdminEmployeeView = () => {
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredEmployees.length > 0 ? (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={emp.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
                     {/* Member */}
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
@@ -255,7 +222,9 @@ const AdminEmployeeView = () => {
                           {emp.initials}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900">{emp.name}</div>
+                          <div className="font-bold text-slate-900">
+                            {emp.name}
+                          </div>
                           <div className="text-[11px] text-slate-400 font-mono">
                             {emp.email}
                           </div>
@@ -269,21 +238,6 @@ const AdminEmployeeView = () => {
                     </td>
 
                     {/* Role Badge */}
-                    <td className="py-4 px-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                          emp.role === "Super Admin"
-                            ? "bg-purple-100 text-purple-800 border border-purple-200"
-                            : emp.role === "Librarian"
-                            ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
-                            : emp.role === "Cataloger"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            : "bg-sky-100 text-sky-800 border border-sky-200"
-                        }`}
-                      >
-                        {emp.role}
-                      </span>
-                    </td>
 
                     {/* Department */}
                     <td className="py-4 px-4 text-slate-600 font-medium">
@@ -297,8 +251,8 @@ const AdminEmployeeView = () => {
                           emp.status === "Active"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : emp.status === "Inactive"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : "bg-rose-50 text-rose-700 border border-rose-200"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200"
                         }`}
                       >
                         <span
@@ -306,22 +260,15 @@ const AdminEmployeeView = () => {
                             emp.status === "Active"
                               ? "bg-emerald-500"
                               : emp.status === "Inactive"
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
+                                ? "bg-amber-500"
+                                : "bg-rose-500"
                           }`}
                         />
                         {emp.status === "Active"
                           ? "Hoạt động"
                           : emp.status === "Inactive"
-                          ? "Ngừng hoạt động"
-                          : "Tạm khóa"}
-                      </span>
-                    </td>
-
-                    {/* Permissions */}
-                    <td className="py-4 px-4">
-                      <span className="text-sky-600 font-bold hover:underline cursor-pointer">
-                        {emp.permissionsCount} quyền hạn
+                            ? "Ngừng hoạt động"
+                            : "Tạm khóa"}
                       </span>
                     </td>
 
@@ -354,13 +301,6 @@ const AdminEmployeeView = () => {
                           }
                         >
                           <Power className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEmployee(emp.id)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Xóa tài khoản"
-                        >
-                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -399,7 +339,10 @@ const AdminEmployeeView = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={handleSubmitForm}
+              className="mt-4 space-y-4 text-xs"
+            >
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   Họ và tên nhân viên *
@@ -408,7 +351,9 @@ const AdminEmployeeView = () => {
                   type="text"
                   required
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="Nhập họ và tên..."
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
                 />
@@ -422,65 +367,78 @@ const AdminEmployeeView = () => {
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   placeholder="email@library.edu.vn"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
                 />
               </div>
 
+              {!editingEmployee && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Tên đăng nhập *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.username}
+                      onChange={(e) =>
+                        setFormData({ ...formData, username: e.target.value })
+                      }
+                      placeholder="Tên đăng nhập"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Mật khẩu *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      placeholder="Mật khẩu"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Mã NV</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Số điện thoại
+                  </label>
                   <input
                     type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 font-mono text-slate-600 rounded-xl outline-none"
+                    value={formData.phoneNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phoneNumber: e.target.value })
+                    }
+                    placeholder="Số điện thoại"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
                   />
                 </div>
-
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Vai trò hệ thống
+                    Địa chỉ
                   </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-semibold rounded-xl outline-none focus:border-sky-500"
-                  >
-                    <option value="Super Admin">Super Admin</option>
-                    <option value="Librarian">Librarian (Thủ thư)</option>
-                    <option value="Cataloger">Cataloger (Biên mục)</option>
-                    <option value="Circulation Staff">Circulation Staff (Lưu thông)</option>
-                  </select>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    placeholder="Địa chỉ..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
+                  />
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Phòng ban công tác
-                </label>
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Trạng thái</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-semibold rounded-xl outline-none focus:border-sky-500"
-                >
-                  <option value="Active">Hoạt động (Active)</option>
-                  <option value="Inactive">Ngừng hoạt động (Inactive)</option>
-                  <option value="Suspended">Tạm khóa (Suspended)</option>
-                </select>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">

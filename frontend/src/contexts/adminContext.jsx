@@ -145,10 +145,13 @@ export const AdminProvider = ({ children }) => {
             code: emp.employeeId,
             email: emp.email,
             role: "Thủ thư",
-            department: emp.address || "Dịch vụ Thư viện",
+            department: emp.address || "",
             status: emp.active ? "Active" : "Inactive",
             permissionsCount: 5,
-            lastActive: "Chưa ghi nhận",
+            lastActive: emp.lastLoginAt ? new Date(emp.lastLoginAt).toLocaleString('vi-VN', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            }) : "Chưa ghi nhận",
             initials: emp.employeeName
               ? emp.employeeName.substring(0, 2).toUpperCase()
               : "NV",

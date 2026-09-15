@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const restoreSession = async () => {
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
 
       if (!token) {
         setLoading(false);
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData.result);
       } catch (error) {
         console.error("Failed to restore session:", error);
-        localStorage.clear();
+        sessionStorage.clear();
         setUser(null);
       } finally {
         setLoading(false);
@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
       throw new Error("Không tìm thấy token!");
     }
 
-    localStorage.setItem("token", newToken);
+    sessionStorage.setItem("token", newToken);
 
     const userData = await authService.fetchMe();
     setUser(userData.result);
@@ -53,14 +53,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signout = useCallback(async () => {
-    const currentToken = localStorage.getItem("token");
+    const currentToken = sessionStorage.getItem("token");
 
     try {
       if (currentToken) {
         await authService.signout({ token: currentToken });
       }
     } finally {
-      localStorage.clear();
+      sessionStorage.clear();
       setUser(null);
     }
   }, []);

@@ -429,6 +429,14 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
+    public List<FineNoticeResponse> getAllFines() {
+        return fineNoticeRepository.findAllByOrderByPaidStatusAscFineIdDesc()
+                .stream()
+                .map(this::toFineResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<FineNoticeResponse> getFines(String readerId) {
         return fineNoticeRepository.findByDetail_BorrowingSlip_Reader_ReaderIdOrderByPaidStatusAscFineIdAsc(readerId)
                 .stream().map(this::toFineResponse).toList();
