@@ -67,12 +67,14 @@ import me.ihqqq.library_management.util.IdGenerator;
 import me.ihqqq.library_management.util.PasswordUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -101,6 +103,7 @@ public class EmployeeService {
     NotificationRepository notificationRepository;
     ReservationMapper reservationMapper;
     SystemLogRepository systemLogRepository;
+    TransactionTemplate transactionTemplate;
 
     @Transactional(readOnly = true)
     public List<ReaderResponse> getReaders() {
@@ -115,77 +118,80 @@ public class EmployeeService {
         return responses;
     }
 
-    @Transactional
     public ReaderResponse createReader(ReaderRegistrationRequest request, String employeeUsername) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new AppException(ErrorCode.USERNAME_EXISTED);
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new AppException(ErrorCode.EMAIL_EXISTED);
-        }
-        Role readerRole = roleRepository.findByRoleNameIgnoreCase(PredefinedRole.READER_ROLE)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-        User user = userRepository.save(User.builder()
-                .userId(generateUserId())
-                .username(request.getUsername())
-                .passwordHash(PasswordUtils.hash(request.getPassword()))
-                .email(request.getEmail())
-                .active(true)
-                .role(readerRole)
-                .build());
-        Reader reader = readerRepository.save(Reader.builder()
-                .readerId(generateReaderId())
-                .readerName(request.getReaderName())
-                .phoneNumber(request.getPhoneNumber())
-                .membershipExpiry(LocalDate.now().plusYears(1))
-                .user(user)
-                .build());
-        writeLog(employeeUsername, "Created reader account " + reader.getReaderId());
-        notifyReader(user, "Tạo tài khoản độc giả", "Tài khoản độc giả đã được tạo.", "READER");
-        return readerMapper.toReaderResponse(reader);
+        return transactionTemplate.execute(status -> {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new AppException(ErrorCode.USERNAME_EXISTED);
+            }
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new AppException(ErrorCode.EMAIL_EXISTED);
+            }
+            Role readerRole = roleRepository.findByRoleNameIgnoreCase(PredefinedRole.READER_ROLE)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+            User user = userRepository.save(User.builder()
+                    .userId(generateUserId())
+                    .username(request.getUsername())
+                    .passwordHash(PasswordUtils.hash(request.getPassword()))
+                    .email(request.getEmail())
+                    .active(true)
+                    .role(readerRole)
+                    .build());
+            Reader reader = readerRepository.save(Reader.builder()
+                    .readerId(generateReaderId())
+                    .readerName(request.getReaderName())
+                    .phoneNumber(request.getPhoneNumber())
+                    .membershipExpiry(LocalDate.now().plusYears(1))
+                    .user(user)
+                    .build());
+            writeLog(employeeUsername, "Created reader account " + reader.getReaderId());
+            notifyReader(user, "Tạo tài khoản độc giả", "Tài khoản độc giả đã được tạo.", "READER");
+            return readerMapper.toReaderResponse(reader);
+        });
     }
 
-    @Transactional
     public ReaderResponse updateReader(
             String readerId,
             ReaderAdminUpdateRequest request,
             String employeeUsername
     ) {
-        Reader reader = readerRepository.findById(readerId)
-                .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
-        if (request.getReaderName() != null) {
-            reader.setReaderName(request.getReaderName());
-        }
-        if (request.getPhoneNumber() != null) {
-            reader.setPhoneNumber(request.getPhoneNumber());
-        }
-        if (request.getMembershipExpiry() != null) {
-            reader.setMembershipExpiry(request.getMembershipExpiry());
-        }
-        if (request.getActive() != null) {
-            reader.getUser().setActive(request.getActive());
-        }
-        Reader saved = readerRepository.save(reader);
-        writeLog(employeeUsername, "Updated reader " + readerId);
-        return readerMapper.toReaderResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Reader reader = readerRepository.findById(readerId)
+                    .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+            if (request.getReaderName() != null) {
+                reader.setReaderName(request.getReaderName());
+            }
+            if (request.getPhoneNumber() != null) {
+                reader.setPhoneNumber(request.getPhoneNumber());
+            }
+            if (request.getMembershipExpiry() != null) {
+                reader.setMembershipExpiry(request.getMembershipExpiry());
+            }
+            if (request.getActive() != null) {
+                reader.getUser().setActive(request.getActive());
+            }
+            Reader saved = readerRepository.save(reader);
+            writeLog(employeeUsername, "Updated reader " + readerId);
+            return readerMapper.toReaderResponse(saved);
+        });
     }
 
-    @Transactional
     public void deactivateReader(String readerId, String employeeUsername) {
-        Reader reader = readerRepository.findById(readerId)
-                .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
-        if (fineNoticeRepository.existsByDetail_BorrowingSlip_Reader_ReaderIdAndPaidStatusFalse(readerId)) {
-            throw new AppException(ErrorCode.READER_HAS_UNPAID_FINE);
-        }
-        if (detailBorrowingSlipRepository.countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(readerId) > 0) {
-            throw new AppException(ErrorCode.READER_HAS_ACTIVE_BORROWING);
-        }
-        if (reservationRepository.existsByReader_ReaderIdAndStatusNot(readerId, ReservationStatus.PROCESSED)) {
-            throw new AppException(ErrorCode.READER_HAS_PENDING_RESERVATION);
-        }
-        reader.getUser().setActive(false);
-        userRepository.save(reader.getUser());
-        writeLog(employeeUsername, "Deactivated reader account " + readerId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Reader reader = readerRepository.findById(readerId)
+                    .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+            if (fineNoticeRepository.existsByDetail_BorrowingSlip_Reader_ReaderIdAndPaidStatusFalse(readerId)) {
+                throw new AppException(ErrorCode.READER_HAS_UNPAID_FINE);
+            }
+            if (detailBorrowingSlipRepository.countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(readerId) > 0) {
+                throw new AppException(ErrorCode.READER_HAS_ACTIVE_BORROWING);
+            }
+            if (reservationRepository.existsByReader_ReaderIdAndStatusNot(readerId, ReservationStatus.PROCESSED)) {
+                throw new AppException(ErrorCode.READER_HAS_PENDING_RESERVATION);
+            }
+            reader.getUser().setActive(false);
+            userRepository.save(reader.getUser());
+            writeLog(employeeUsername, "Deactivated reader account " + readerId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -193,216 +199,233 @@ public class EmployeeService {
         return bookRepository.findAll().stream().map(this::toBookResponse).toList();
     }
 
-    @Transactional
     public BookResponse createBook(BookRequest request, String employeeUsername) {
-        if (bookRepository.existsByBookNameIgnoreCase(request.getBookName())) {
-            throw new AppException(ErrorCode.BOOK_NAME_EXISTED);
-        }
-        Book book = Book.builder()
-                .bookId(generateBookId())
-                .bookName(request.getBookName())
-                .publisher(resolvePublisher(request.getPublisherId()))
-                .year(request.getYear())
-                .description(request.getDescription())
-                .authors(resolveAuthors(request.getAuthorIds()))
-                .categories(resolveCategories(request.getCategoryIds()))
-                .build();
-        book = bookRepository.save(book);
-        saveCopies(book, request.getCopies());
-        writeLog(employeeUsername, "Created book " + book.getBookId());
-        return toBookResponse(book);
+        return transactionTemplate.execute(status -> {
+            if (bookRepository.existsByBookNameIgnoreCase(request.getBookName())) {
+                throw new AppException(ErrorCode.BOOK_NAME_EXISTED);
+            }
+            Book book = Book.builder()
+                    .bookId(generateBookId())
+                    .bookName(request.getBookName())
+                    .publisher(resolvePublisher(request.getPublisherId()))
+                    .year(request.getYear())
+                    .description(request.getDescription())
+                    .authors(resolveAuthors(request.getAuthorIds()))
+                    .categories(resolveCategories(request.getCategoryIds()))
+                    .build();
+            book = bookRepository.save(book);
+            saveCopies(book, request.getCopies());
+            writeLog(employeeUsername, "Created book " + book.getBookId());
+            return toBookResponse(book);
+        });
     }
 
-    @Transactional
     public BookResponse updateBook(String bookId, BookRequest request, String employeeUsername) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
-        if (bookRepository.existsByBookNameIgnoreCaseAndBookIdNot(request.getBookName(), bookId)) {
-            throw new AppException(ErrorCode.BOOK_NAME_EXISTED);
-        }
-        book.setBookName(request.getBookName());
-        book.setPublisher(resolvePublisher(request.getPublisherId()));
-        book.setYear(request.getYear());
-        book.setDescription(request.getDescription());
-        book.setAuthors(resolveAuthors(request.getAuthorIds()));
-        book.setCategories(resolveCategories(request.getCategoryIds()));
-        Book saved = bookRepository.save(book);
-        saveCopies(saved, request.getCopies());
-        writeLog(employeeUsername, "Updated book " + bookId);
-        return toBookResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Book book = bookRepository.findById(bookId)
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            if (bookRepository.existsByBookNameIgnoreCaseAndBookIdNot(request.getBookName(), bookId)) {
+                throw new AppException(ErrorCode.BOOK_NAME_EXISTED);
+            }
+            book.setBookName(request.getBookName());
+            book.setPublisher(resolvePublisher(request.getPublisherId()));
+            book.setYear(request.getYear());
+            book.setDescription(request.getDescription());
+            book.setAuthors(resolveAuthors(request.getAuthorIds()));
+            book.setCategories(resolveCategories(request.getCategoryIds()));
+            Book saved = bookRepository.save(book);
+            saveCopies(saved, request.getCopies());
+            writeLog(employeeUsername, "Updated book " + bookId);
+            return toBookResponse(saved);
+        });
     }
 
-    @Transactional
     public void deleteBook(String bookId, String employeeUsername) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
-        if (bookCopyRepository.existsByBook_BookId(bookId)) {
-            throw new AppException(ErrorCode.BOOK_HAS_COPIES);
-        }
-        bookRepository.delete(book);
-        writeLog(employeeUsername, "Deleted book " + bookId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Book book = bookRepository.findById(bookId)
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            if (bookCopyRepository.existsByBook_BookId(bookId)) {
+                throw new AppException(ErrorCode.BOOK_HAS_COPIES);
+            }
+            bookRepository.delete(book);
+            writeLog(employeeUsername, "Deleted book " + bookId);
+        });
     }
 
-    @Transactional
     public BookCopyResponse updateInventory(
             InventoryItemRequest request,
             String employeeUsername
     ) {
-        BookCopy copy = bookCopyRepository.findById(request.getCopyId())
-                .orElseThrow(() -> new AppException(ErrorCode.COPY_NOT_FOUND));
-        validateCopyStatus(request.getStatus());
-        if (request.getStatus() != null) {
-            copy.setStatus(request.getStatus());
-        }
-        if (request.getShelfId() != null) {
-            copy.setShelf(shelfRepository.findById(request.getShelfId())
-                    .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND)));
-        }
-        BookCopy saved = bookCopyRepository.save(copy);
-        writeLog(employeeUsername, "Updated inventory for copy " + saved.getCopyId());
-        return toBookCopyResponse(saved);
+        return transactionTemplate.execute(status -> {
+            BookCopy copy = bookCopyRepository.findById(request.getCopyId())
+                    .orElseThrow(() -> new AppException(ErrorCode.COPY_NOT_FOUND));
+            validateCopyStatus(request.getStatus());
+            if (request.getStatus() != null) {
+                copy.setStatus(request.getStatus());
+            }
+            if (request.getShelfId() != null) {
+                copy.setShelf(shelfRepository.findById(request.getShelfId())
+                        .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND)));
+            }
+            BookCopy saved = bookCopyRepository.save(copy);
+            writeLog(employeeUsername, "Updated inventory for copy " + saved.getCopyId());
+            return toBookCopyResponse(saved);
+        });
     }
 
-    @Transactional
     public EmployeeOperationResponse borrowBooks(
             BorrowBooksRequest request,
             String employeeUsername
     ) {
-        Employee employee = findEmployeeByUsername(employeeUsername);
-        Reader reader = readerRepository.findById(request.getReaderId())
-                .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
-        validateReaderCanBorrow(reader);
-        Set<String> uniqueCopyIds = new HashSet<>(request.getCopyIds());
-        if (uniqueCopyIds.size() != request.getCopyIds().size()) {
-            throw new AppException(ErrorCode.COPY_NOT_AVAILABLE);
-        }
-        BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
-        long activeBorrowings = detailBorrowingSlipRepository
-                .countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(reader.getReaderId());
-        if (activeBorrowings + uniqueCopyIds.size() > config.getMaxBooksPerReader()) {
-            throw new AppException(ErrorCode.BORROWING_LIMIT_REACHED);
-        }
-
-        List<BookCopy> copies = uniqueCopyIds.stream().map(id -> bookCopyRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.COPY_NOT_FOUND))).toList();
-        copies.forEach(copy -> {
-            if (!BookCopyStatus.AVAILABLE.equalsIgnoreCase(copy.getStatus())) {
+        return transactionTemplate.execute(status -> {
+            Employee employee = findEmployeeByUsername(employeeUsername);
+            Reader reader = readerRepository.findById(request.getReaderId())
+                    .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+            validateReaderCanBorrow(reader);
+            Set<String> uniqueCopyIds = new HashSet<>(request.getCopyIds());
+            if (uniqueCopyIds.size() != request.getCopyIds().size()) {
                 throw new AppException(ErrorCode.COPY_NOT_AVAILABLE);
             }
-        });
+            BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
+                    .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
+            long activeBorrowings = detailBorrowingSlipRepository
+                    .countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(reader.getReaderId());
+            if (activeBorrowings + uniqueCopyIds.size() > config.getMaxBooksPerReader()) {
+                throw new AppException(ErrorCode.BORROWING_LIMIT_REACHED);
+            }
 
-        BorrowingSlip slip = borrowingSlipRepository.save(BorrowingSlip.builder()
-                .borrowingId(generateBorrowingId())
-                .reader(reader)
-                .createdByEmployeeId(employee.getEmployeeId())
-                .borrowDate(LocalDateTime.now())
-                .notes(request.getNotes())
-                .build());
-        LocalDate expectedReturnDate = LocalDate.now().plusDays(config.getMaxBorrowDays());
-        for (BookCopy copy : copies) {
-            detailBorrowingSlipRepository.save(DetailBorrowingSlip.builder()
-                    .detailId(generateDetailId())
-                    .borrowingSlip(slip)
-                    .copy(copy)
-                    .expectedReturnDate(expectedReturnDate)
+            List<BookCopy> copies = uniqueCopyIds.stream()
+                    .sorted()
+                    .map(id -> bookCopyRepository.findByIdForUpdate(id)
+                            .orElseThrow(() -> new AppException(ErrorCode.COPY_NOT_FOUND)))
+                    .toList();
+            copies.forEach(copy -> {
+                if (!BookCopyStatus.AVAILABLE.equalsIgnoreCase(copy.getStatus())) {
+                    throw new AppException(ErrorCode.COPY_NOT_AVAILABLE);
+                }
+            });
+
+            BorrowingSlip slip = borrowingSlipRepository.save(BorrowingSlip.builder()
+                    .borrowingId(generateBorrowingId())
+                    .reader(reader)
+                    .createdByEmployeeId(employee.getEmployeeId())
+                    .borrowDate(LocalDateTime.now())
+                    .notes(request.getNotes())
                     .build());
-            copy.setStatus(BookCopyStatus.BORROWED);
-            bookCopyRepository.save(copy);
-        }
-        notifyReader(reader.getUser(), "Lập phiếu mượn", "Phiếu mượn " + slip.getBorrowingId() + " đã được tạo.", "BORROWING");
-        writeLog(employeeUsername, "Created borrowing slip " + slip.getBorrowingId());
-        return EmployeeOperationResponse.builder()
-                .operationId(slip.getBorrowingId())
-                .borrowingId(slip.getBorrowingId())
-                .readerId(reader.getReaderId())
-                .expectedReturnDate(expectedReturnDate)
-                .message("Borrowing slip created successfully")
-                .build();
+            LocalDate expectedReturnDate = LocalDate.now().plusDays(config.getMaxBorrowDays());
+            for (BookCopy copy : copies) {
+                detailBorrowingSlipRepository.save(DetailBorrowingSlip.builder()
+                        .detailId(generateDetailId())
+                        .borrowingSlip(slip)
+                        .copy(copy)
+                        .expectedReturnDate(expectedReturnDate)
+                        .build());
+                copy.setStatus(BookCopyStatus.BORROWED);
+                bookCopyRepository.save(copy);
+            }
+            notifyReader(reader.getUser(), "Lập phiếu mượn", "Phiếu mượn " + slip.getBorrowingId() + " đã được tạo.", "BORROWING");
+            writeLog(employeeUsername, "Created borrowing slip " + slip.getBorrowingId());
+            return EmployeeOperationResponse.builder()
+                    .operationId(slip.getBorrowingId())
+                    .borrowingId(slip.getBorrowingId())
+                    .readerId(reader.getReaderId())
+                    .expectedReturnDate(expectedReturnDate)
+                    .message("Borrowing slip created successfully")
+                    .build();
+        });
     }
 
-    @Transactional
     public EmployeeOperationResponse returnBook(ReturnBookRequest request, String employeeUsername) {
-        Employee employee = findEmployeeByUsername(employeeUsername);
-        DetailBorrowingSlip detail = detailBorrowingSlipRepository
-                .findByCopy_CopyIdAndActualReturnDateIsNull(request.getCopyId()).stream()
-                .findFirst()
-                .orElseThrow(() -> new AppException(ErrorCode.COPY_ALREADY_RETURNED));
-        validateReturnStatus(request.getCondition());
-        LocalDate today = LocalDate.now();
-        detail.setActualReturnDate(today);
-        detailBorrowingSlipRepository.save(detail);
-        BookCopy copy = detail.getCopy();
-        copy.setStatus(request.getCondition());
-        bookCopyRepository.save(copy);
+        return transactionTemplate.execute(status -> {
+            Employee employee = findEmployeeByUsername(employeeUsername);
+            DetailBorrowingSlip detail = detailBorrowingSlipRepository
+                    .findFirstByCopy_CopyIdAndActualReturnDateIsNullOrderByDetailIdAsc(request.getCopyId())
+                    .orElseThrow(() -> new AppException(ErrorCode.COPY_ALREADY_RETURNED));
+            validateReturnStatus(request.getCondition());
+            LocalDate today = LocalDate.now();
+            detail.setActualReturnDate(today);
+            detailBorrowingSlipRepository.save(detail);
+            BookCopy copy = detail.getCopy();
+            copy.setStatus(request.getCondition());
+            bookCopyRepository.save(copy);
 
-        String fineId = null;
-        long overdueDays = Math.max(0, ChronoUnit.DAYS.between(detail.getExpectedReturnDate(), today));
-        if (overdueDays > 0) {
-            FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
-            if (config != null) {
-                FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
-                        .fineId(generateFineId())
-                        .detail(detail)
-                        .finePrice(config.getFineRatePerDay().multiply(BigDecimal.valueOf(overdueDays)))
-                        .reason("Late return: " + overdueDays + " day(s)")
-                        .paidStatus(false)
-                        .build());
-                fineId = fine.getFineId();
+            String fineId = null;
+            long overdueDays = Math.max(0, ChronoUnit.DAYS.between(detail.getExpectedReturnDate(), today));
+            if (overdueDays > 0) {
+                FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
+                if (config != null) {
+                    FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
+                            .fineId(generateFineId())
+                            .detail(detail)
+                            .finePrice(config.getFineRatePerDay().multiply(BigDecimal.valueOf(overdueDays)))
+                            .reason("Late return: " + overdueDays + " day(s)")
+                            .paidStatus(false)
+                            .build());
+                    fineId = fine.getFineId();
+                }
             }
-        }
-        if (BookCopyStatus.LOST.equalsIgnoreCase(request.getCondition())
-                || BookCopyStatus.DAMAGED.equalsIgnoreCase(request.getCondition())) {
-            FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
-            if (config != null) {
-                FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
-                        .fineId(generateFineId())
-                        .detail(detail)
-                        .finePrice(config.getFineRatePerDay())
-                        .reason(request.getCondition())
-                        .paidStatus(false)
-                        .build());
-                fineId = fine.getFineId();
+            if (BookCopyStatus.LOST.equalsIgnoreCase(request.getCondition())
+                    || BookCopyStatus.DAMAGED.equalsIgnoreCase(request.getCondition())) {
+                FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
+                if (config != null) {
+                    FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
+                            .fineId(generateFineId())
+                            .detail(detail)
+                            .finePrice(config.getFineRatePerDay())
+                            .reason(request.getCondition())
+                            .paidStatus(false)
+                            .build());
+                    fineId = fine.getFineId();
+                }
             }
-        }
-        notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Nhận trả sách",
-                "Đã nhận trả bản sao " + request.getCopyId() + ".", "RETURN");
-        writeLog(employeeUsername, "Returned copy " + request.getCopyId() + " by " + employee.getEmployeeId());
-        return EmployeeOperationResponse.builder()
-                .operationId(detail.getDetailId())
-                .detailId(detail.getDetailId())
-                .copyId(request.getCopyId())
-                .fineId(fineId)
-                .actualReturnDate(today)
-                .message("Book returned successfully")
-                .build();
+            notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Nhận trả sách",
+                    "Đã nhận trả bản sao " + request.getCopyId() + ".", "RETURN");
+            writeLog(employeeUsername, "Returned copy " + request.getCopyId() + " by " + employee.getEmployeeId());
+            return EmployeeOperationResponse.builder()
+                    .operationId(detail.getDetailId())
+                    .detailId(detail.getDetailId())
+                    .copyId(request.getCopyId())
+                    .fineId(fineId)
+                    .actualReturnDate(today)
+                    .message("Book returned successfully")
+                    .build();
+        });
     }
 
-    @Transactional
     public EmployeeOperationResponse renewBorrowing(String detailId, String employeeUsername) {
-        DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
-                .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
-        if (detail.getActualReturnDate() != null) {
-            throw new AppException(ErrorCode.COPY_ALREADY_RETURNED);
-        }
-        if (reservationRepository.existsByBook_BookIdAndStatus(
-                detail.getCopy().getBook().getBookId(), ReservationStatus.WAITING)) {
-            throw new AppException(ErrorCode.BOOK_RESERVED_BY_OTHERS);
-        }
-        BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
-        LocalDate expected = detail.getExpectedReturnDate().plusDays(config.getMaxBorrowDays());
-        detail.setExpectedReturnDate(expected);
-        detailBorrowingSlipRepository.save(detail);
-        notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Gia hạn mượn sách",
-                "Hạn trả mới: " + expected + ".", "BORROWING");
-        writeLog(employeeUsername, "Renewed borrowing detail " + detailId);
-        return EmployeeOperationResponse.builder()
-                .operationId(detailId)
-                .detailId(detailId)
-                .expectedReturnDate(expected)
-                .message("Borrowing renewed successfully")
-                .build();
+        return transactionTemplate.execute(status -> {
+            DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
+                    .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            if (detail.getActualReturnDate() != null) {
+                throw new AppException(ErrorCode.COPY_ALREADY_RETURNED);
+            }
+            if (reservationRepository.existsByBook_BookIdAndStatus(
+                    detail.getCopy().getBook().getBookId(), ReservationStatus.WAITING)) {
+                throw new AppException(ErrorCode.BOOK_RESERVED_BY_OTHERS);
+            }
+            BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
+                    .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
+            LocalDate expected = detail.getExpectedReturnDate().plusDays(config.getMaxBorrowDays());
+            detail.setExpectedReturnDate(expected);
+            detailBorrowingSlipRepository.save(detail);
+            notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Gia hạn mượn sách",
+                    "Hạn trả mới: " + expected + ".", "BORROWING");
+            writeLog(employeeUsername, "Renewed borrowing detail " + detailId);
+            return EmployeeOperationResponse.builder()
+                    .operationId(detailId)
+                    .detailId(detailId)
+                    .expectedReturnDate(expected)
+                    .message("Borrowing renewed successfully")
+                    .build();
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<FineNoticeResponse> getAllFines() {
+        return fineNoticeRepository.findAllByOrderByPaidStatusAscFineIdDesc()
+                .stream()
+                .map(this::toFineResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -419,41 +442,43 @@ public class EmployeeService {
                 .stream().map(this::toFineResponse).toList();
     }
 
-    @Transactional
     public FineNoticeResponse createFine(FineNoticeRequest request, String employeeUsername) {
-        Employee employee = findEmployeeByUsername(employeeUsername);
-        DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(request.getDetailId())
-                .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
-        FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
-                .fineId(generateFineId())
-                .detail(detail)
-                .collectedByEmployeeId(employee.getEmployeeId())
-                .finePrice(request.getFinePrice())
-                .reason(request.getReason())
-                .paidStatus(false)
-                .build());
-        notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Thông báo phạt",
-                "Bạn có khoản phạt " + request.getFinePrice() + ".", "FINE");
-        writeLog(employeeUsername, "Created fine notice " + fine.getFineId());
-        return toFineResponse(fine);
+        return transactionTemplate.execute(status -> {
+            Employee employee = findEmployeeByUsername(employeeUsername);
+            DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(request.getDetailId())
+                    .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
+                    .fineId(generateFineId())
+                    .detail(detail)
+                    .collectedByEmployeeId(employee.getEmployeeId())
+                    .finePrice(request.getFinePrice())
+                    .reason(request.getReason())
+                    .paidStatus(false)
+                    .build());
+            notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Thông báo phạt",
+                    "Bạn có khoản phạt " + request.getFinePrice() + ".", "FINE");
+            writeLog(employeeUsername, "Created fine notice " + fine.getFineId());
+            return toFineResponse(fine);
+        });
     }
 
-    @Transactional
     public FineNoticeResponse collectFine(String fineId, String employeeUsername) {
-        Employee employee = findEmployeeByUsername(employeeUsername);
-        FineNotice fine = fineNoticeRepository.findById(fineId)
-                .orElseThrow(() -> new AppException(ErrorCode.FINE_NOT_FOUND));
-        if (fine.isPaidStatus()) {
-            throw new AppException(ErrorCode.FINE_ALREADY_PAID);
-        }
-        fine.setPaidStatus(true);
-        fine.setPaidDate(LocalDate.now());
-        fine.setCollectedByEmployeeId(employee.getEmployeeId());
-        FineNotice saved = fineNoticeRepository.save(fine);
-        notifyReader(fine.getDetail().getBorrowingSlip().getReader().getUser(), "Thanh toán tiền phạt",
-                "Khoản phạt " + fineId + " đã được ghi nhận thanh toán.", "FINE");
-        writeLog(employeeUsername, "Collected fine notice " + fineId);
-        return toFineResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Employee employee = findEmployeeByUsername(employeeUsername);
+            FineNotice fine = fineNoticeRepository.findByIdForUpdate(fineId)
+                    .orElseThrow(() -> new AppException(ErrorCode.FINE_NOT_FOUND));
+            if (fine.isPaidStatus()) {
+                throw new AppException(ErrorCode.FINE_ALREADY_PAID);
+            }
+            fine.setPaidStatus(true);
+            fine.setPaidDate(LocalDate.now());
+            fine.setCollectedByEmployeeId(employee.getEmployeeId());
+            FineNotice saved = fineNoticeRepository.save(fine);
+            notifyReader(fine.getDetail().getBorrowingSlip().getReader().getUser(), "Thanh toán tiền phạt",
+                    "Khoản phạt " + fineId + " đã được ghi nhận thanh toán.", "FINE");
+            writeLog(employeeUsername, "Collected fine notice " + fineId);
+            return toFineResponse(saved);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -462,50 +487,71 @@ public class EmployeeService {
                 .stream().map(reservationMapper::toReservationResponse).toList();
     }
 
-    @Transactional
     public ReservationResponse processReservation(
             String reservationId,
             ProcessReservationRequest request,
             String employeeUsername
     ) {
-        Employee employee = findEmployeeByUsername(employeeUsername);
-        Reservation reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
-        if (!reservation.getStatus().equals(ReservationStatus.UNPROCESSED)
-                && !reservation.getStatus().equals(ReservationStatus.WAITING)) {
-            throw new AppException(ErrorCode.RESERVATION_NOT_FOUND);
-        }
-        if (bookCopyRepository.countByBook_BookIdAndStatus(
-                reservation.getBook().getBookId(), BookCopyStatus.AVAILABLE) == 0) {
-            throw new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE);
-        }
-        reservation.setStatus(ReservationStatus.WAITING);
-        reservation.setProcessedByEmployeeId(employee.getEmployeeId());
-        reservation.setExpiryDate(LocalDate.now().plusDays(request.getExpiryDays()));
-        Reservation saved = reservationRepository.save(reservation);
-        notifyReader(reservation.getReader().getUser(), "Sách đặt trước đã sẵn sàng",
-                "Vui lòng nhận sách trước ngày " + reservation.getExpiryDate() + ".", "RESERVATION");
-        writeLog(employeeUsername, "Processed reservation " + reservationId);
-        return reservationMapper.toReservationResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Employee employee = findEmployeeByUsername(employeeUsername);
+            Reservation snapshot = reservationRepository.findById(reservationId)
+                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
+            bookRepository.findByIdForUpdate(snapshot.getBook().getBookId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            Reservation reservation = reservationRepository.findByIdForUpdate(reservationId)
+                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
+            if (!reservation.getStatus().equals(ReservationStatus.UNPROCESSED)
+                    && !reservation.getStatus().equals(ReservationStatus.WAITING)) {
+                throw new AppException(ErrorCode.RESERVATION_NOT_FOUND);
+            }
+            BookCopy reservedCopy = bookCopyRepository
+                    .findFirstByBook_BookIdAndStatusOrderByCopyIdAsc(
+                            reservation.getBook().getBookId(),
+                            BookCopyStatus.AVAILABLE
+                    )
+                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE));
+            reservedCopy.setStatus(BookCopyStatus.RESERVED);
+            bookCopyRepository.save(reservedCopy);
+            reservation.setStatus(ReservationStatus.PROCESSED);
+            reservation.setProcessedByEmployeeId(employee.getEmployeeId());
+            reservation.setExpiryDate(LocalDate.now().plusDays(request.getExpiryDays()));
+            Reservation saved = reservationRepository.save(reservation);
+            notifyReader(reservation.getReader().getUser(), "Sách đặt trước đã sẵn sàng",
+                    "Vui lòng nhận sách trước ngày " + reservation.getExpiryDate() + ".", "RESERVATION");
+            writeLog(employeeUsername, "Processed reservation " + reservationId);
+            return reservationMapper.toReservationResponse(saved);
+        });
     }
 
-    @Transactional
     public int expireReservations(String employeeUsername) {
-        int count = 0;
-        for (Reservation reservation : reservationRepository.findAll()) {
-            if ((ReservationStatus.WAITING.equals(reservation.getStatus())
-                    || ReservationStatus.UNPROCESSED.equals(reservation.getStatus()))
-                    && reservation.getExpiryDate() != null
-                    && reservation.getExpiryDate().isBefore(LocalDate.now())) {
-                reservation.setStatus(ReservationStatus.EXPIRED);
-                reservationRepository.save(reservation);
-                count++;
+        return transactionTemplate.execute(status -> {
+            int count = 0;
+            List<Reservation> candidates = reservationRepository.findAll().stream()
+                    .filter(reservation -> reservation.getExpiryDate() != null)
+                    .sorted(Comparator
+                            .comparing((Reservation reservation) -> reservation.getBook().getBookId())
+                            .thenComparing(Reservation::getReservationId))
+                    .toList();
+            for (Reservation candidate : candidates) {
+                bookRepository.findByIdForUpdate(candidate.getBook().getBookId())
+                        .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+                Reservation reservation = reservationRepository.findByIdForUpdate(
+                                candidate.getReservationId())
+                        .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
+                boolean canExpire = ReservationStatus.WAITING.equals(reservation.getStatus())
+                        || ReservationStatus.UNPROCESSED.equals(reservation.getStatus());
+                if (canExpire && reservation.getExpiryDate() != null
+                        && reservation.getExpiryDate().isBefore(LocalDate.now())) {
+                    reservation.setStatus(ReservationStatus.EXPIRED);
+                    reservationRepository.save(reservation);
+                    count++;
+                }
             }
-        }
-        if (count > 0) {
-            writeLog(employeeUsername, "Expired " + count + " reservation(s)");
-        }
-        return count;
+            if (count > 0) {
+                writeLog(employeeUsername, "Expired " + count + " reservation(s)");
+            }
+            return count;
+        });
     }
 
     private void validateReaderCanBorrow(Reader reader) {

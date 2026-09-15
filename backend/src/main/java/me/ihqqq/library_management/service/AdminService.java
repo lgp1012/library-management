@@ -49,6 +49,7 @@ import me.ihqqq.library_management.util.IdGenerator;
 import me.ihqqq.library_management.util.PasswordUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -71,14 +72,21 @@ public class AdminService {
     BookCopyRepository bookCopyRepository;
     BookAuthorLinkRepository bookAuthorLinkRepository;
     BookCategoryLinkRepository bookCategoryLinkRepository;
+    TransactionTemplate transactionTemplate;
 
     @Transactional(readOnly = true)
     public List<EmployeeResponse> getEmployees() {
         return employeeRepository.findAll().stream().map(this::toEmployeeResponse).toList();
     }
 
-    @Transactional
     public EmployeeResponse createEmployee(EmployeeCreationRequest request, String adminUsername) {
+        return transactionTemplate.execute(status -> createEmployeeInTransaction(request, adminUsername));
+    }
+
+    private EmployeeResponse createEmployeeInTransaction(
+            EmployeeCreationRequest request,
+            String adminUsername
+    ) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USERNAME_EXISTED);
         }
@@ -109,18 +117,19 @@ public class AdminService {
         return toEmployeeResponse(employee);
     }
 
-    @Transactional
     public void deactivateEmployee(String employeeId, String adminUsername) {
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND));
-        User user = employee.getUser();
-        if (!user.isActive()) {
-            throw new AppException(ErrorCode.EMPLOYEE_ALREADY_INACTIVE);
-        }
+        transactionTemplate.executeWithoutResult(status -> {
+            Employee employee = employeeRepository.findById(employeeId)
+                    .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND));
+            User user = employee.getUser();
+            if (!user.isActive()) {
+                throw new AppException(ErrorCode.EMPLOYEE_ALREADY_INACTIVE);
+            }
 
-        user.setActive(false);
-        userRepository.save(user);
-        writeLog(adminUsername, "Deactivated employee account " + employeeId);
+            user.setActive(false);
+            userRepository.save(user);
+            writeLog(adminUsername, "Deactivated employee account " + employeeId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -130,23 +139,24 @@ public class AdminService {
                 .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
     }
 
-    @Transactional
     public BorrowingConfigResponse updateBorrowingConfig(
             BorrowingConfigRequest request,
             String adminUsername
     ) {
-        User admin = findUser(adminUsername);
-        BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseGet(() -> BorrowingConfig.builder()
-                        .configId(generateBorrowingConfigId())
-                        .build());
-        config.setMaxBorrowDays(request.getMaxBorrowDays());
-        config.setMaxBooksPerReader(request.getMaxBooksPerReader());
-        config.setConfigByUser(admin);
-        BorrowingConfig saved = borrowingConfigRepository.save(config);
+        return transactionTemplate.execute(status -> {
+            User admin = findUser(adminUsername);
+            BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
+                    .orElseGet(() -> BorrowingConfig.builder()
+                            .configId(generateBorrowingConfigId())
+                            .build());
+            config.setMaxBorrowDays(request.getMaxBorrowDays());
+            config.setMaxBooksPerReader(request.getMaxBooksPerReader());
+            config.setConfigByUser(admin);
+            BorrowingConfig saved = borrowingConfigRepository.save(config);
 
-        writeLog(adminUsername, "Updated borrowing configuration " + saved.getConfigId());
-        return toBorrowingConfigResponse(saved);
+            writeLog(adminUsername, "Updated borrowing configuration " + saved.getConfigId());
+            return toBorrowingConfigResponse(saved);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -156,46 +166,22 @@ public class AdminService {
                 .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
     }
 
-    @Transactional(readOnly = true)
-    public List<FineConfigResponse> getFineConfigs() {
-        return fineConfigRepository.findAll().stream().map(this::toFineConfigResponse).toList();
-    }
+    public FineConfigResponse updateFineConfig(FineConfigRequest request, String adminUsername) {
+        return transactionTemplate.execute(status -> {
+            User admin = findUser(adminUsername);
+            FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc()
+                    .orElseGet(() -> FineConfig.builder()
+                            .configId(generateFineConfigId())
+                            .build());
+            config.setFineType(request.getFineType());
+            config.setFineRatePerDay(request.getFineRatePerDay());
+            config.setDescriptionFine(request.getDescriptionFine());
+            config.setConfigByUser(admin);
+            FineConfig saved = fineConfigRepository.save(config);
 
-    @Transactional
-    public FineConfigResponse createFineConfig(FineConfigRequest request, String adminUsername) {
-        if (fineConfigRepository.existsByFineTypeIgnoreCase(request.getFineType())) {
-            throw new AppException(ErrorCode.FINE_CONFIG_TYPE_EXISTED);
-        }
-        User admin = findUser(adminUsername);
-        FineConfig config = FineConfig.builder()
-                .configId(generateFineConfigId())
-                .fineType(request.getFineType())
-                .fineRatePerDay(request.getFineRatePerDay())
-                .descriptionFine(request.getDescriptionFine())
-                .configByUser(admin)
-                .build();
-        FineConfig saved = fineConfigRepository.save(config);
-
-        writeLog(adminUsername, "Configured fine policy " + saved.getConfigId() + " (" + saved.getFineType() + ")");
-        return toFineConfigResponse(saved);
-    }
-
-    @Transactional
-    public FineConfigResponse updateFineConfigById(String configId, FineConfigRequest request, String adminUsername) {
-        User admin = findUser(adminUsername);
-        FineConfig config = fineConfigRepository.findById(configId)
-                .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
-        if (fineConfigRepository.existsByFineTypeIgnoreCaseAndConfigIdNot(request.getFineType(), configId)) {
-            throw new AppException(ErrorCode.FINE_CONFIG_TYPE_EXISTED);
-        }
-        config.setFineType(request.getFineType());
-        config.setFineRatePerDay(request.getFineRatePerDay());
-        config.setDescriptionFine(request.getDescriptionFine());
-        config.setConfigByUser(admin);
-        FineConfig saved = fineConfigRepository.save(config);
-
-        writeLog(adminUsername, "Updated fine configuration " + saved.getConfigId());
-        return toFineConfigResponse(saved);
+            writeLog(adminUsername, "Updated fine configuration " + saved.getConfigId());
+            return toFineConfigResponse(saved);
+        });
     }
 
     @Transactional
@@ -218,42 +204,45 @@ public class AdminService {
         return categoryRepository.findAll().stream().map(this::toCategoryResponse).toList();
     }
 
-    @Transactional
     public CategoryResponse createCategory(CategoryRequest request, String adminUsername) {
-        if (categoryRepository.existsByCategoryNameIgnoreCase(request.getCategoryName())) {
-            throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
-        }
-        Category category = categoryRepository.save(Category.builder()
-                .categoryId(generateCategoryId())
-                .categoryName(request.getCategoryName())
-                .build());
-        writeLog(adminUsername, "Created category " + category.getCategoryId());
-        return toCategoryResponse(category);
+        return transactionTemplate.execute(status -> {
+            if (categoryRepository.existsByCategoryNameIgnoreCase(request.getCategoryName())) {
+                throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
+            }
+            Category category = categoryRepository.save(Category.builder()
+                    .categoryId(generateCategoryId())
+                    .categoryName(request.getCategoryName())
+                    .build());
+            writeLog(adminUsername, "Created category " + category.getCategoryId());
+            return toCategoryResponse(category);
+        });
     }
 
-    @Transactional
     public CategoryResponse updateCategory(String categoryId, CategoryRequest request, String adminUsername) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
-        if (categoryRepository.existsByCategoryNameIgnoreCaseAndCategoryIdNot(
-                request.getCategoryName(), categoryId)) {
-            throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
-        }
-        category.setCategoryName(request.getCategoryName());
-        Category saved = categoryRepository.save(category);
-        writeLog(adminUsername, "Updated category " + categoryId);
-        return toCategoryResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+            if (categoryRepository.existsByCategoryNameIgnoreCaseAndCategoryIdNot(
+                    request.getCategoryName(), categoryId)) {
+                throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
+            }
+            category.setCategoryName(request.getCategoryName());
+            Category saved = categoryRepository.save(category);
+            writeLog(adminUsername, "Updated category " + categoryId);
+            return toCategoryResponse(saved);
+        });
     }
 
-    @Transactional
     public void deleteCategory(String categoryId, String adminUsername) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
-        if (bookCategoryLinkRepository.countByCategoryId(categoryId) > 0) {
-            throw new AppException(ErrorCode.CATEGORY_IN_USE);
-        }
-        categoryRepository.delete(category);
-        writeLog(adminUsername, "Deleted category " + categoryId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+            if (bookCategoryLinkRepository.countByCategoryId(categoryId) > 0) {
+                throw new AppException(ErrorCode.CATEGORY_IN_USE);
+            }
+            categoryRepository.delete(category);
+            writeLog(adminUsername, "Deleted category " + categoryId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -261,45 +250,48 @@ public class AdminService {
         return authorRepository.findAll().stream().map(this::toAuthorResponse).toList();
     }
 
-    @Transactional
     public AuthorResponse createAuthor(AuthorRequest request, String adminUsername) {
-        if (authorRepository.existsByAuthorNameIgnoreCase(request.getAuthorName())) {
-            throw new AppException(ErrorCode.AUTHOR_NAME_EXISTED);
-        }
-        Author author = authorRepository.save(Author.builder()
-                .authorId(generateAuthorId())
-                .authorName(request.getAuthorName())
-                .birthday(request.getBirthday())
-                .nationality(request.getNationality())
-                .build());
-        writeLog(adminUsername, "Created author " + author.getAuthorId());
-        return toAuthorResponse(author);
+        return transactionTemplate.execute(status -> {
+            if (authorRepository.existsByAuthorNameIgnoreCase(request.getAuthorName())) {
+                throw new AppException(ErrorCode.AUTHOR_NAME_EXISTED);
+            }
+            Author author = authorRepository.save(Author.builder()
+                    .authorId(generateAuthorId())
+                    .authorName(request.getAuthorName())
+                    .birthday(request.getBirthday())
+                    .nationality(request.getNationality())
+                    .build());
+            writeLog(adminUsername, "Created author " + author.getAuthorId());
+            return toAuthorResponse(author);
+        });
     }
 
-    @Transactional
     public AuthorResponse updateAuthor(String authorId, AuthorRequest request, String adminUsername) {
-        Author author = authorRepository.findById(authorId)
-                .orElseThrow(() -> new AppException(ErrorCode.AUTHOR_NOT_FOUND));
-        if (authorRepository.existsByAuthorNameIgnoreCaseAndAuthorIdNot(request.getAuthorName(), authorId)) {
-            throw new AppException(ErrorCode.AUTHOR_NAME_EXISTED);
-        }
-        author.setAuthorName(request.getAuthorName());
-        author.setBirthday(request.getBirthday());
-        author.setNationality(request.getNationality());
-        Author saved = authorRepository.save(author);
-        writeLog(adminUsername, "Updated author " + authorId);
-        return toAuthorResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Author author = authorRepository.findById(authorId)
+                    .orElseThrow(() -> new AppException(ErrorCode.AUTHOR_NOT_FOUND));
+            if (authorRepository.existsByAuthorNameIgnoreCaseAndAuthorIdNot(request.getAuthorName(), authorId)) {
+                throw new AppException(ErrorCode.AUTHOR_NAME_EXISTED);
+            }
+            author.setAuthorName(request.getAuthorName());
+            author.setBirthday(request.getBirthday());
+            author.setNationality(request.getNationality());
+            Author saved = authorRepository.save(author);
+            writeLog(adminUsername, "Updated author " + authorId);
+            return toAuthorResponse(saved);
+        });
     }
 
-    @Transactional
     public void deleteAuthor(String authorId, String adminUsername) {
-        Author author = authorRepository.findById(authorId)
-                .orElseThrow(() -> new AppException(ErrorCode.AUTHOR_NOT_FOUND));
-        if (bookAuthorLinkRepository.countByAuthorId(authorId) > 0) {
-            throw new AppException(ErrorCode.AUTHOR_IN_USE);
-        }
-        authorRepository.delete(author);
-        writeLog(adminUsername, "Deleted author " + authorId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Author author = authorRepository.findById(authorId)
+                    .orElseThrow(() -> new AppException(ErrorCode.AUTHOR_NOT_FOUND));
+            if (bookAuthorLinkRepository.countByAuthorId(authorId) > 0) {
+                throw new AppException(ErrorCode.AUTHOR_IN_USE);
+            }
+            authorRepository.delete(author);
+            writeLog(adminUsername, "Deleted author " + authorId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -307,46 +299,49 @@ public class AdminService {
         return publisherRepository.findAll().stream().map(this::toPublisherResponse).toList();
     }
 
-    @Transactional
     public PublisherResponse createPublisher(PublisherRequest request, String adminUsername) {
-        if (publisherRepository.existsByPublisherNameIgnoreCase(request.getPublisherName())) {
-            throw new AppException(ErrorCode.PUBLISHER_NAME_EXISTED);
-        }
-        Publisher publisher = publisherRepository.save(Publisher.builder()
-                .publisherId(generatePublisherId())
-                .publisherName(request.getPublisherName())
-                .build());
-        writeLog(adminUsername, "Created publisher " + publisher.getPublisherId());
-        return toPublisherResponse(publisher);
+        return transactionTemplate.execute(status -> {
+            if (publisherRepository.existsByPublisherNameIgnoreCase(request.getPublisherName())) {
+                throw new AppException(ErrorCode.PUBLISHER_NAME_EXISTED);
+            }
+            Publisher publisher = publisherRepository.save(Publisher.builder()
+                    .publisherId(generatePublisherId())
+                    .publisherName(request.getPublisherName())
+                    .build());
+            writeLog(adminUsername, "Created publisher " + publisher.getPublisherId());
+            return toPublisherResponse(publisher);
+        });
     }
 
-    @Transactional
     public PublisherResponse updatePublisher(
             String publisherId,
             PublisherRequest request,
             String adminUsername
     ) {
-        Publisher publisher = publisherRepository.findById(publisherId)
-                .orElseThrow(() -> new AppException(ErrorCode.PUBLISHER_NOT_FOUND));
-        if (publisherRepository.existsByPublisherNameIgnoreCaseAndPublisherIdNot(
-                request.getPublisherName(), publisherId)) {
-            throw new AppException(ErrorCode.PUBLISHER_NAME_EXISTED);
-        }
-        publisher.setPublisherName(request.getPublisherName());
-        Publisher saved = publisherRepository.save(publisher);
-        writeLog(adminUsername, "Updated publisher " + publisherId);
-        return toPublisherResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Publisher publisher = publisherRepository.findById(publisherId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PUBLISHER_NOT_FOUND));
+            if (publisherRepository.existsByPublisherNameIgnoreCaseAndPublisherIdNot(
+                    request.getPublisherName(), publisherId)) {
+                throw new AppException(ErrorCode.PUBLISHER_NAME_EXISTED);
+            }
+            publisher.setPublisherName(request.getPublisherName());
+            Publisher saved = publisherRepository.save(publisher);
+            writeLog(adminUsername, "Updated publisher " + publisherId);
+            return toPublisherResponse(saved);
+        });
     }
 
-    @Transactional
     public void deletePublisher(String publisherId, String adminUsername) {
-        Publisher publisher = publisherRepository.findById(publisherId)
-                .orElseThrow(() -> new AppException(ErrorCode.PUBLISHER_NOT_FOUND));
-        if (bookRepository.countByPublisher_PublisherId(publisherId) > 0) {
-            throw new AppException(ErrorCode.PUBLISHER_IN_USE);
-        }
-        publisherRepository.delete(publisher);
-        writeLog(adminUsername, "Deleted publisher " + publisherId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Publisher publisher = publisherRepository.findById(publisherId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PUBLISHER_NOT_FOUND));
+            if (bookRepository.countByPublisher_PublisherId(publisherId) > 0) {
+                throw new AppException(ErrorCode.PUBLISHER_IN_USE);
+            }
+            publisherRepository.delete(publisher);
+            writeLog(adminUsername, "Deleted publisher " + publisherId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -354,43 +349,46 @@ public class AdminService {
         return shelfRepository.findAll().stream().map(this::toShelfResponse).toList();
     }
 
-    @Transactional
     public ShelfResponse createShelf(ShelfRequest request, String adminUsername) {
-        if (shelfRepository.existsByShelfNameIgnoreCase(request.getShelfName())) {
-            throw new AppException(ErrorCode.SHELF_NAME_EXISTED);
-        }
-        Shelf shelf = shelfRepository.save(Shelf.builder()
-                .shelfId(generateShelfId())
-                .shelfName(request.getShelfName())
-                .position(request.getPosition())
-                .build());
-        writeLog(adminUsername, "Created shelf " + shelf.getShelfId());
-        return toShelfResponse(shelf);
+        return transactionTemplate.execute(status -> {
+            if (shelfRepository.existsByShelfNameIgnoreCase(request.getShelfName())) {
+                throw new AppException(ErrorCode.SHELF_NAME_EXISTED);
+            }
+            Shelf shelf = shelfRepository.save(Shelf.builder()
+                    .shelfId(generateShelfId())
+                    .shelfName(request.getShelfName())
+                    .position(request.getPosition())
+                    .build());
+            writeLog(adminUsername, "Created shelf " + shelf.getShelfId());
+            return toShelfResponse(shelf);
+        });
     }
 
-    @Transactional
     public ShelfResponse updateShelf(String shelfId, ShelfRequest request, String adminUsername) {
-        Shelf shelf = shelfRepository.findById(shelfId)
-                .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND));
-        if (shelfRepository.existsByShelfNameIgnoreCaseAndShelfIdNot(request.getShelfName(), shelfId)) {
-            throw new AppException(ErrorCode.SHELF_NAME_EXISTED);
-        }
-        shelf.setShelfName(request.getShelfName());
-        shelf.setPosition(request.getPosition());
-        Shelf saved = shelfRepository.save(shelf);
-        writeLog(adminUsername, "Updated shelf " + shelfId);
-        return toShelfResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Shelf shelf = shelfRepository.findById(shelfId)
+                    .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND));
+            if (shelfRepository.existsByShelfNameIgnoreCaseAndShelfIdNot(request.getShelfName(), shelfId)) {
+                throw new AppException(ErrorCode.SHELF_NAME_EXISTED);
+            }
+            shelf.setShelfName(request.getShelfName());
+            shelf.setPosition(request.getPosition());
+            Shelf saved = shelfRepository.save(shelf);
+            writeLog(adminUsername, "Updated shelf " + shelfId);
+            return toShelfResponse(saved);
+        });
     }
 
-    @Transactional
     public void deleteShelf(String shelfId, String adminUsername) {
-        Shelf shelf = shelfRepository.findById(shelfId)
-                .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND));
-        if (bookCopyRepository.countByShelf_ShelfId(shelfId) > 0) {
-            throw new AppException(ErrorCode.SHELF_IN_USE);
-        }
-        shelfRepository.delete(shelf);
-        writeLog(adminUsername, "Deleted shelf " + shelfId);
+        transactionTemplate.executeWithoutResult(status -> {
+            Shelf shelf = shelfRepository.findById(shelfId)
+                    .orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND));
+            if (bookCopyRepository.countByShelf_ShelfId(shelfId) > 0) {
+                throw new AppException(ErrorCode.SHELF_IN_USE);
+            }
+            shelfRepository.delete(shelf);
+            writeLog(adminUsername, "Deleted shelf " + shelfId);
+        });
     }
 
     @Transactional(readOnly = true)
