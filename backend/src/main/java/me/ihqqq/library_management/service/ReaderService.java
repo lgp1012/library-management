@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.ihqqq.library_management.constant.BookCopyStatus;
 import me.ihqqq.library_management.constant.PredefinedRole;
 import me.ihqqq.library_management.constant.ReservationStatus;
+import me.ihqqq.library_management.dto.request.ChangePasswordRequest;
 import me.ihqqq.library_management.dto.request.ReaderRegistrationRequest;
 import me.ihqqq.library_management.dto.request.ReaderUpdateRequest;
 import me.ihqqq.library_management.dto.request.ReservationRequest;
@@ -14,6 +15,7 @@ import me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse;
 import me.ihqqq.library_management.dto.response.ReaderResponse;
 import me.ihqqq.library_management.dto.response.ReservationResponse;
 import me.ihqqq.library_management.entity.Book;
+import me.ihqqq.library_management.entity.BookCopy;
 import me.ihqqq.library_management.entity.BorrowingConfig;
 import me.ihqqq.library_management.entity.DetailBorrowingSlip;
 import me.ihqqq.library_management.entity.Notification;
@@ -29,6 +31,7 @@ import me.ihqqq.library_management.repository.BookCopyRepository;
 import me.ihqqq.library_management.repository.BookRepository;
 import me.ihqqq.library_management.repository.BorrowingConfigRepository;
 import me.ihqqq.library_management.repository.DetailBorrowingSlipRepository;
+import me.ihqqq.library_management.repository.FineNoticeRepository;
 import me.ihqqq.library_management.repository.NotificationRepository;
 import me.ihqqq.library_management.repository.ReaderRepository;
 import me.ihqqq.library_management.repository.ReservationRepository;
@@ -38,8 +41,10 @@ import me.ihqqq.library_management.util.IdGenerator;
 import me.ihqqq.library_management.util.PasswordUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -55,52 +60,48 @@ public class ReaderService {
     ReservationRepository reservationRepository;
     DetailBorrowingSlipRepository detailBorrowingSlipRepository;
     BorrowingConfigRepository borrowingConfigRepository;
+    FineNoticeRepository fineNoticeRepository;
     NotificationRepository notificationRepository;
     ReaderMapper readerMapper;
     ReservationMapper reservationMapper;
+    TransactionTemplate transactionTemplate;
 
     /**
      * Đăng ký tài khoản độc giả (READER > Đăng ký tài khoản).
      * Bảng liên quan: users, readers, notifications.
      */
-    @Transactional
     public ReaderResponse register(ReaderRegistrationRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new AppException(ErrorCode.USERNAME_EXISTED);
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new AppException(ErrorCode.EMAIL_EXISTED);
-        }
-
-        Role readerRole = roleRepository.findByRoleNameIgnoreCase(PredefinedRole.READER_ROLE)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-
-        User user = User.builder()
-                .userId(generateUniqueUserId())
-                .username(request.getUsername())
-                .passwordHash(PasswordUtils.hash(request.getPassword()))
-                .email(request.getEmail())
-                .active(true)
-                .role(readerRole)
-                .build();
-        user = userRepository.save(user);
-
-        Reader reader = Reader.builder()
-                .readerId(generateUniqueReaderId())
-                .readerName(request.getReaderName())
-                .phoneNumber(request.getPhoneNumber())
-                .membershipExpiry(LocalDate.now().plusYears(1))
-                .user(user)
-                .build();
-        reader = readerRepository.save(reader);
-
-        createNotification(user, "Đăng ký tài khoản",
-                "Đăng ký tài khoản độc giả thành công.", "SYSTEM");
-
-        log.info("Reader registered: {} (readerId: {}, userId: {})",
-                user.getUsername(), reader.getReaderId(), user.getUserId());
-
-        return readerMapper.toReaderResponse(reader);
+        return transactionTemplate.execute(status -> {
+            if (userRepository.countRegistrationConflictsForUpdate(
+                    request.getUsername(), request.getEmail()) > 0) {
+                if (userRepository.existsByUsername(request.getUsername())) {
+                    throw new AppException(ErrorCode.USERNAME_EXISTED);
+                }
+                throw new AppException(ErrorCode.EMAIL_EXISTED);
+            }
+            Role readerRole = roleRepository.findByRoleNameIgnoreCase(PredefinedRole.READER_ROLE)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+            User user = userRepository.save(User.builder()
+                    .userId(generateUniqueUserId())
+                    .username(request.getUsername())
+                    .passwordHash(PasswordUtils.hash(request.getPassword()))
+                    .email(request.getEmail())
+                    .active(true)
+                    .role(readerRole)
+                    .build());
+            Reader reader = readerRepository.save(Reader.builder()
+                    .readerId(generateUniqueReaderId())
+                    .readerName(request.getReaderName())
+                    .phoneNumber(request.getPhoneNumber())
+                    .membershipExpiry(LocalDate.now().plusYears(1))
+                    .user(user)
+                    .build());
+            createNotification(user, "Đăng ký tài khoản",
+                    "Đăng ký tài khoản độc giả thành công.", "ACCOUNT");
+            log.info("Reader registered: {} (readerId: {}, userId: {})",
+                    user.getUsername(), reader.getReaderId(), user.getUserId());
+            return readerMapper.toReaderResponse(reader);
+        });
     }
 
     /**
@@ -116,124 +117,201 @@ public class ReaderService {
      * Cập nhật thông tin cá nhân (READER > Cập nhật thông tin cá nhân).
      * Reader chỉ được sửa họ tên và số điện thoại.
      */
-    @Transactional
     public ReaderResponse updateProfile(String username, ReaderUpdateRequest request) {
-        Reader reader = getReaderByUsername(username);
-
-        if (request.getReaderName() != null) {
-            reader.setReaderName(request.getReaderName());
-        }
-        if (request.getPhoneNumber() != null) {
-            reader.setPhoneNumber(request.getPhoneNumber());
-        }
-
-        Reader saved = readerRepository.save(reader);
-        log.info("Reader profile updated: {}", saved.getReaderId());
-
-        return readerMapper.toReaderResponse(saved);
+        return transactionTemplate.execute(status -> {
+            Reader reader = getReaderByUsernameForUpdate(username);
+            ensureActive(reader);
+            if (request.getReaderName() != null) {
+                reader.setReaderName(request.getReaderName());
+            }
+            if (request.getPhoneNumber() != null) {
+                reader.setPhoneNumber(request.getPhoneNumber());
+            }
+            Reader saved = readerRepository.save(reader);
+            userRepository.save(reader.getUser());
+            log.info("Reader profile updated: {}", saved.getReaderId());
+            return readerMapper.toReaderResponse(saved);
+        });
     }
 
-    /**
-     * Đặt trước sách (READER > Đặt trước sách).
-     * Bảng liên quan: book_copies, reservations, notifications.
-     */
-    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request) {
+        transactionTemplate.executeWithoutResult(status -> {
+            User user = userRepository.findByUsernameForUpdate(username)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            if (!user.isActive() || !PredefinedRole.READER_ROLE.equalsIgnoreCase(user.getRole().getRoleName())) {
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+            }
+            if (!PasswordUtils.matches(request.getOldPassword(), user.getPasswordHash())) {
+                throw new AppException(ErrorCode.INVALID_PASSWORD);
+            }
+            user.setPasswordHash(PasswordUtils.hash(request.getNewPassword()));
+            userRepository.save(user);
+            createNotification(user, "Đổi mật khẩu thành công",
+                    "Tài khoản của bạn vừa đổi mật khẩu thành công. Nếu không phải bạn thực hiện, "
+                            + "vui lòng liên hệ thủ thư.", "SECURITY");
+            log.info("Reader password changed: {}", user.getUserId());
+        });
+    }
+
     public ReservationResponse reserveBook(String username, ReservationRequest request) {
-        Reader reader = getReaderByUsername(username);
+        return transactionTemplate.execute(status -> {
+            Book book = bookRepository.findByIdForUpdate(request.getBookId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            Reader reader = getReaderByUsernameForUpdate(username);
+            ensureActive(reader);
+            if (reader.getMembershipExpiry().isBefore(LocalDate.now())) {
+                throw new AppException(ErrorCode.MEMBERSHIP_EXPIRED);
+            }
+            if (!fineNoticeRepository.findUnpaidByReaderForUpdate(reader.getReaderId()).isEmpty()) {
+                throw new AppException(ErrorCode.READER_HAS_UNPAID_FINE);
+            }
 
-        Book book = bookRepository.findById(request.getBookId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            List<BookCopy> copies = bookCopyRepository.findByBookIdForUpdate(book.getBookId());
+            if (copies.stream().anyMatch(copy -> BookCopyStatus.AVAILABLE.equals(copy.getStatus()))) {
+                throw new AppException(ErrorCode.BOOK_STILL_AVAILABLE);
+            }
+            List<String> activeStatuses = List.of(
+                    ReservationStatus.UNPROCESSED,
+                    ReservationStatus.WAITING,
+                    ReservationStatus.PROCESSED);
+            if (!reservationRepository.findConflictsForUpdate(
+                    reader.getReaderId(), book.getBookId(), activeStatuses).isEmpty()) {
+                throw new AppException(ErrorCode.RESERVATION_EXISTED);
+            }
 
-        long availableCopies = bookCopyRepository.countByBook_BookIdAndStatus(
-                book.getBookId(), BookCopyStatus.AVAILABLE);
-        if (availableCopies > 0) {
-            throw new AppException(ErrorCode.BOOK_STILL_AVAILABLE);
-        }
+            Reservation reservation = reservationRepository.save(Reservation.builder()
+                    .reservationId(generateUniqueReservationId())
+                    .reader(reader)
+                    .book(book)
+                    .reservationDate(LocalDate.now())
+                    .status(ReservationStatus.UNPROCESSED)
+                    .build());
+            createNotification(reader.getUser(), "Đặt trước sách",
+                    "Đặt trước sách \"" + book.getBookName() + "\" thành công. "
+                            + "Bạn sẽ được thông báo khi sách sẵn sàng để nhận.", "RESERVATION");
+            log.info("Reservation created: {} (reader: {}, book: {})",
+                    reservation.getReservationId(), reader.getReaderId(), book.getBookId());
+            return reservationMapper.toReservationResponse(reservation);
+        });
+    }
 
-        boolean hasPendingReservation = reservationRepository
-                .existsByReader_ReaderIdAndBook_BookIdAndStatusNot(
-                        reader.getReaderId(), book.getBookId(), ReservationStatus.PROCESSED);
-        if (hasPendingReservation) {
-            throw new AppException(ErrorCode.RESERVATION_EXISTED);
-        }
+    public DetailBorrowingSlipResponse renewBorrowing(String username, String detailId) {
+        return transactionTemplate.execute(status -> {
+            DetailBorrowingSlip snapshot = detailBorrowingSlipRepository.findById(detailId)
+                    .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            bookRepository.findByIdForUpdate(snapshot.getCopy().getBook().getBookId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            Reader reader = getReaderByUsernameForUpdate(username);
+            ensureActive(reader);
+            DetailBorrowingSlip detail = detailBorrowingSlipRepository.findByIdForUpdate(detailId)
+                    .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            if (!detail.getBorrowingSlip().getReader().getReaderId().equals(reader.getReaderId())) {
+                throw new AppException(ErrorCode.BORROWING_NOT_OWNED);
+            }
+            if (detail.getActualReturnDate() != null) {
+                throw new AppException(ErrorCode.BOOK_ALREADY_RETURNED);
+            }
+            if (detail.getExpectedReturnDate().isBefore(LocalDate.now())) {
+                throw new AppException(ErrorCode.BORROWING_OVERDUE);
+            }
 
-        Reservation reservation = Reservation.builder()
-                .reservationId(generateUniqueReservationId())
-                .reader(reader)
-                .book(book)
-                .reservationDate(LocalDate.now())
-                .status(ReservationStatus.UNPROCESSED)
-                .build();
-        reservation = reservationRepository.save(reservation);
-
-        createNotification(reader.getUser(), "Đặt trước sách",
-                "Đặt trước sách \"" + book.getBookName() + "\" thành công. "
-                        + "Bạn sẽ được thông báo khi sách sẵn sàng để nhận.", "RESERVATION");
-
-        log.info("Reservation created: {} (reader: {}, book: {})",
-                reservation.getReservationId(), reader.getReaderId(), book.getBookId());
-
-        return reservationMapper.toReservationResponse(reservation);
+            Book book = detail.getCopy().getBook();
+            List<String> waitingStatuses =
+                    List.of(ReservationStatus.UNPROCESSED, ReservationStatus.WAITING);
+            if (!reservationRepository.findOtherReadersWaitingForUpdate(
+                    reader.getReaderId(), book.getBookId(), waitingStatuses).isEmpty()) {
+                throw new AppException(ErrorCode.BOOK_RESERVED_BY_OTHERS);
+            }
+            int extendDays = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
+                    .map(BorrowingConfig::getMaxBorrowDays)
+                    .orElse(7);
+            LocalDate newExpectedReturnDate =
+                    detail.getExpectedReturnDate().plusDays(extendDays);
+            detail.setExpectedReturnDate(newExpectedReturnDate);
+            DetailBorrowingSlip saved = detailBorrowingSlipRepository.save(detail);
+            createNotification(reader.getUser(), "Gia hạn mượn sách",
+                    "Gia hạn thành công cho sách \"" + book.getBookName()
+                            + "\". Hạn trả mới: " + newExpectedReturnDate + ".", "BORROWING");
+            log.info("Borrowing detail renewed: {} -> new expected return date {}",
+                    detailId, newExpectedReturnDate);
+            return DetailBorrowingSlipResponse.builder()
+                    .detailId(saved.getDetailId())
+                    .borrowingId(saved.getBorrowingSlip().getBorrowingId())
+                    .copyId(saved.getCopy().getCopyId())
+                    .bookId(book.getBookId())
+                    .bookName(book.getBookName())
+                    .expectedReturnDate(saved.getExpectedReturnDate())
+                    .actualReturnDate(saved.getActualReturnDate())
+                    .build();
+        });
     }
 
     /**
-     * Gia hạn thời gian mượn sách (READER > Gia hạn thời gian mượn sách).
-     * Bảng liên quan: detail_borrowing_slips, borrowing_config, reservations, notifications.
-     * <p>
-     * Ghi chú: thiết kế CSDL không tách riêng "số ngày gia hạn" khỏi
-     * "số ngày mượn tối đa", nên số ngày gia hạn được tính bằng
-     * {@code borrowing_config.max_borrow_days} hiện hành.
+     * Hủy đặt trước và nhả một bản sao Reserved nếu yêu cầu đã được xử lý.
      */
-    @Transactional
-    public DetailBorrowingSlipResponse renewBorrowing(String username, String detailId) {
-        Reader reader = getReaderByUsername(username);
+    public ReservationResponse cancelReservation(String username, String reservationId) {
+        return transactionTemplate.execute(status -> {
+            Reservation snapshot = reservationRepository.findById(reservationId)
+                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
+            bookRepository.findByIdForUpdate(snapshot.getBook().getBookId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            Reader reader = getReaderByUsernameForUpdate(username);
+            ensureActive(reader);
+            Reservation reservation = reservationRepository.findByIdForUpdate(reservationId)
+                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
+            if (!reservation.getReader().getReaderId().equals(reader.getReaderId())) {
+                throw new AppException(ErrorCode.RESERVATION_NOT_FOUND);
+            }
+            if (ReservationStatus.CANCELLED.equals(reservation.getStatus())
+                    || ReservationStatus.COMPLETED.equals(reservation.getStatus())) {
+                throw new AppException(ErrorCode.RESERVATION_ALREADY_CLOSED);
+            }
 
-        DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
-                .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            if (ReservationStatus.PROCESSED.equals(reservation.getStatus())) {
+                BookCopy reservedCopy = bookCopyRepository
+                        .findFirstByBook_BookIdAndStatusOrderByCopyIdAsc(
+                                reservation.getBook().getBookId(), BookCopyStatus.RESERVED)
+                        .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE));
+                reservedCopy.setStatus(BookCopyStatus.AVAILABLE);
+                bookCopyRepository.save(reservedCopy);
+            }
 
-        if (!detail.getBorrowingSlip().getReader().getReaderId().equals(reader.getReaderId())) {
-            throw new AppException(ErrorCode.BORROWING_NOT_OWNED);
-        }
+            reservation.setStatus(ReservationStatus.CANCELLED);
+            Reservation saved = reservationRepository.save(reservation);
+            log.info("Reservation cancelled: {} by reader {}", reservationId, reader.getReaderId());
+            return reservationMapper.toReservationResponse(saved);
+        });
+    }
 
-        if (detail.getActualReturnDate() != null) {
-            throw new AppException(ErrorCode.BOOK_ALREADY_RETURNED);
-        }
-
-        Book book = detail.getCopy().getBook();
-        boolean waitingReservationExists = reservationRepository
-                .existsByBook_BookIdAndStatus(book.getBookId(), ReservationStatus.WAITING);
-        if (waitingReservationExists) {
-            throw new AppException(ErrorCode.BOOK_RESERVED_BY_OTHERS);
-        }
-
-        BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
-
-        LocalDate newExpectedReturnDate = detail.getExpectedReturnDate().plusDays(config.getMaxBorrowDays());
-        detail.setExpectedReturnDate(newExpectedReturnDate);
-        DetailBorrowingSlip saved = detailBorrowingSlipRepository.save(detail);
-
-        createNotification(reader.getUser(), "Gia hạn mượn sách",
-                "Gia hạn thành công cho sách \"" + book.getBookName()
-                        + "\". Hạn trả mới: " + newExpectedReturnDate + ".", "BORROWING");
-
-        log.info("Borrowing detail renewed: {} -> new expected return date {}",
-                detailId, newExpectedReturnDate);
-
-        return DetailBorrowingSlipResponse.builder()
-                .detailId(saved.getDetailId())
-                .borrowingId(saved.getBorrowingSlip().getBorrowingId())
-                .copyId(saved.getCopy().getCopyId())
-                .bookId(book.getBookId())
-                .bookName(book.getBookName())
-                .expectedReturnDate(saved.getExpectedReturnDate())
-                .actualReturnDate(saved.getActualReturnDate())
-                .build();
+    /**
+     * Chỉ chủ sở hữu thông báo mới được đánh dấu đã đọc.
+     */
+    public void markNotificationAsRead(String username, String notificationId) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Reader reader = getReaderByUsernameForUpdate(username);
+            ensureActive(reader);
+            Notification notification = notificationRepository
+                    .findOwnedByUserForUpdate(notificationId, reader.getUser().getUserId())
+                    .orElseThrow(() -> new AppException(ErrorCode.NOTIFICATION_NOT_FOUND));
+            notification.setRead(true);
+            notificationRepository.save(notification);
+        });
     }
 
     private Reader getReaderByUsername(String username) {
         return readerRepository.findByUser_Username(username)
                 .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+    }
+
+    private Reader getReaderByUsernameForUpdate(String username) {
+        return readerRepository.findByUsernameForUpdate(username)
+                .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+    }
+
+    private void ensureActive(Reader reader) {
+        if (!reader.getUser().isActive()) {
+            throw new AppException(ErrorCode.USER_INACTIVE);
+        }
     }
 
     private void createNotification(User user, String title, String message, String type) {

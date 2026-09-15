@@ -117,6 +117,10 @@ public enum ErrorCode {
     RESERVATION_NOT_FOUND(1783, "Reservation not found", HttpStatus.NOT_FOUND),
     RESERVATION_NOT_AVAILABLE(1784, "No available copy for this reservation", HttpStatus.BAD_REQUEST),
     RESERVATION_EXPIRY_DAYS_INVALID(1785, "Reservation expiry days must be greater than zero", HttpStatus.BAD_REQUEST),
+    MEMBERSHIP_EXPIRED(1786, "Library membership has expired", HttpStatus.BAD_REQUEST),
+    BORROWING_OVERDUE(1787, "Overdue books cannot be renewed online", HttpStatus.BAD_REQUEST),
+    RESERVATION_ALREADY_CLOSED(1788, "Reservation has already been completed or cancelled", HttpStatus.BAD_REQUEST),
+    NOTIFICATION_NOT_FOUND(1789, "Notification not found or does not belong to you", HttpStatus.NOT_FOUND),
     ;
 
     int code;

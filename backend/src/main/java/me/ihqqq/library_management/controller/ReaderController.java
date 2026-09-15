@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import me.ihqqq.library_management.dto.request.ReaderRegistrationRequest;
 import me.ihqqq.library_management.dto.request.ReaderUpdateRequest;
 import me.ihqqq.library_management.dto.request.ReservationRequest;
+import me.ihqqq.library_management.dto.request.ChangePasswordRequest;
 import me.ihqqq.library_management.dto.response.ApiResponse;
 import me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse;
 import me.ihqqq.library_management.dto.response.ReaderResponse;
@@ -61,6 +62,14 @@ public class ReaderController {
                 .build();
     }
 
+    @PatchMapping("/me/password")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<Void> changePassword(Authentication authentication,
+                                     @RequestBody @Valid ChangePasswordRequest request) {
+        readerService.changePassword(authentication.getName(), request);
+        return ApiResponse.<Void>builder().build();
+    }
+
     /**
      * Đặt trước sách.
      */
@@ -74,6 +83,15 @@ public class ReaderController {
                 .build();
     }
 
+    @PatchMapping("/me/reservations/{reservationId}/cancel")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<ReservationResponse> cancelReservation(Authentication authentication,
+                                                       @PathVariable String reservationId) {
+        return ApiResponse.<ReservationResponse>builder()
+                .result(readerService.cancelReservation(authentication.getName(), reservationId))
+                .build();
+    }
+
     /**
      * Gia hạn thời gian mượn sách cho một chi tiết phiếu mượn cụ thể.
      */
@@ -84,5 +102,13 @@ public class ReaderController {
         return ApiResponse.<DetailBorrowingSlipResponse>builder()
                 .result(readerService.renewBorrowing(authentication.getName(), detailId))
                 .build();
+    }
+
+    @PatchMapping("/me/notifications/{notificationId}/read")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<Void> markNotificationAsRead(Authentication authentication,
+                                             @PathVariable String notificationId) {
+        readerService.markNotificationAsRead(authentication.getName(), notificationId);
+        return ApiResponse.<Void>builder().build();
     }
 }
