@@ -18,9 +18,12 @@ import java.time.LocalDate;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ReservationResponse {
     String reservationId;
+    String readerId;
+    String readerName;
     String bookId;
     String bookName;
     LocalDate reservationDate;
     LocalDate expiryDate;
+    LocalDate estimatedAvailableDate;
     String status;
 }

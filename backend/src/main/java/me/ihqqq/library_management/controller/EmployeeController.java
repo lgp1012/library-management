@@ -127,6 +127,15 @@ public class EmployeeController {
         return ApiResponse.<Void>builder().message("Book deleted successfully").build();
     }
 
+    @DeleteMapping("/copies/{copyId}")
+    ApiResponse<Void> deleteBookCopy(
+            @PathVariable String copyId,
+            Authentication authentication
+    ) {
+        employeeService.deleteBookCopy(copyId, authentication.getName());
+        return ApiResponse.<Void>builder().message("Book copy deleted successfully").build();
+    }
+
     @PutMapping("/inventory")
     ApiResponse<BookCopyResponse> updateInventory(
             @RequestBody @Valid InventoryItemRequest request,
@@ -200,6 +209,13 @@ public class EmployeeController {
     ) {
         return ApiResponse.<FineNoticeResponse>builder()
                 .result(employeeService.collectFine(fineId, authentication.getName()))
+                .build();
+    }
+
+    @GetMapping("/fines/config")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.FineConfigResponse>> getFineConfigs() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.FineConfigResponse>>builder()
+                .result(employeeService.getFineConfigs())
                 .build();
     }
 

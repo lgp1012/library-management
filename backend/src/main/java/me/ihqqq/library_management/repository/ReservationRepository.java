@@ -22,6 +22,13 @@ public interface ReservationRepository extends JpaRepository<Reservation, String
     List<Reservation> findByReader_ReaderIdOrderByReservationDateDesc(String readerId);
 
     List<Reservation> findByStatusOrderByReservationDateAsc(String status);
+
+    List<Reservation> findByStatusInOrderByReservationDateAsc(Collection<String> statuses);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from Reservation r where r.book.bookId = :bookId")
+    void deleteByBook_BookId(@org.springframework.data.repository.query.Param("bookId") String bookId);
+
     boolean existsByBook_BookIdAndStatusNot(String bookId, String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

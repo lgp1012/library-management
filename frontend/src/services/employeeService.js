@@ -36,6 +36,10 @@ const employeeService = {
     const res = await api.delete(`/employees/books/${id}`);
     return res.data;
   },
+  deleteBookCopy: async (copyId) => {
+    const res = await api.delete(`/employees/copies/${copyId}`);
+    return res.data;
+  },
 
   // --- INVENTORY ---
   updateInventory: async (data) => {
@@ -65,6 +69,10 @@ const employeeService = {
   },
   getFines: async (readerId) => {
     const res = await api.get(`/employees/fines/readers/${readerId}`);
+    return res.data;
+  },
+  getFineConfigs: async () => {
+    const res = await api.get("/employees/fines/config");
     return res.data;
   },
   getReaderBorrowings: async (readerId) => {

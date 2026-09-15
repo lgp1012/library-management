@@ -17,6 +17,9 @@ public interface BookCopyRepository extends JpaRepository<BookCopy, String> {
 
     List<BookCopy> findByBook_BookId(String bookId);
     boolean existsByBook_BookId(String bookId);
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = "DELETE FROM book_copies WHERE book_id = :bookId", nativeQuery = true)
+    void deleteCopiesByBookId(@Param("bookId") String bookId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select copy from BookCopy copy where copy.copyId = :copyId")

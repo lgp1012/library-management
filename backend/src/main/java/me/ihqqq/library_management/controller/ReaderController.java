@@ -45,6 +45,14 @@ public class ReaderController {
                 .build();
     }
 
+    @GetMapping("/me/borrowings")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<DetailBorrowingSlipResponse>> getMyBorrowings(Authentication authentication) {
+        return ApiResponse.<java.util.List<DetailBorrowingSlipResponse>>builder()
+                .result(readerService.getMyBorrowings(authentication.getName()))
+                .build();
+    }
+
     @GetMapping("/me")
     @PreAuthorize("hasRole('READER')")
     ApiResponse<ReaderResponse> getMyProfile(Authentication authentication) {
@@ -73,6 +81,14 @@ public class ReaderController {
     /**
      * Đặt trước sách.
      */
+    @GetMapping("/me/reservations")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<ReservationResponse>> getMyReservations(Authentication authentication) {
+        return ApiResponse.<java.util.List<ReservationResponse>>builder()
+                .result(readerService.getMyReservations(authentication.getName()))
+                .build();
+    }
+
     @PostMapping("/me/reservations")
     @PreAuthorize("hasRole('READER')")
     @ResponseStatus(HttpStatus.CREATED)

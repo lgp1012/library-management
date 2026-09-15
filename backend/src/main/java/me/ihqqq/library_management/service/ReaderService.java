@@ -100,7 +100,7 @@ public class ReaderService {
                     "Đăng ký tài khoản độc giả thành công.", "ACCOUNT");
             log.info("Reader registered: {} (readerId: {}, userId: {})",
                     user.getUsername(), reader.getReaderId(), user.getUserId());
-            return readerMapper.toReaderResponse(reader);
+            return populateExtraFields(reader);
         });
     }
 
@@ -108,9 +108,41 @@ public class ReaderService {
      * Xem thông tin cá nhân (dựa trên username lấy từ JWT subject).
      */
     @Transactional(readOnly = true)
+
+    private ReaderResponse populateExtraFields(Reader reader) {
+        ReaderResponse response = readerMapper.toReaderResponse(reader);
+        response.setCurrentlyBorrowedBooks(
+                detailBorrowingSlipRepository.countByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(reader.getReaderId()));
+        java.util.List<me.ihqqq.library_management.entity.FineNotice> notices = fineNoticeRepository.findByDetail_BorrowingSlip_Reader_ReaderIdOrderByPaidStatusAscFineIdAsc(reader.getReaderId());
+        java.math.BigDecimal unpaidFine = notices.stream()
+                .filter(n -> !n.isPaidStatus())
+                .map(me.ihqqq.library_management.entity.FineNotice::getFinePrice)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        response.setUnpaidFine(unpaidFine);
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<DetailBorrowingSlipResponse> getMyBorrowings(String username) {
+        Reader reader = getReaderByUsername(username);
+        java.util.List<DetailBorrowingSlip> details = detailBorrowingSlipRepository.findByBorrowingSlip_Reader_ReaderIdAndActualReturnDateIsNull(reader.getReaderId());
+        return details.stream().map(d -> DetailBorrowingSlipResponse.builder()
+                .detailId(d.getDetailId())
+                .borrowingId(d.getBorrowingSlip().getBorrowingId())
+                .readerId(reader.getReaderId())
+                .readerName(reader.getReaderName())
+                .copyId(d.getCopy().getCopyId())
+                .bookId(d.getCopy().getBook().getBookId())
+                .bookName(d.getCopy().getBook().getBookName())
+                .borrowingDate(d.getBorrowingSlip().getBorrowDate().toLocalDate())
+                .expectedReturnDate(d.getExpectedReturnDate())
+                .actualReturnDate(d.getActualReturnDate())
+                .build()).collect(java.util.stream.Collectors.toList());
+    }
+
     public ReaderResponse getMyProfile(String username) {
         Reader reader = getReaderByUsername(username);
-        return readerMapper.toReaderResponse(reader);
+        return populateExtraFields(reader);
     }
 
     /**
@@ -130,7 +162,7 @@ public class ReaderService {
             Reader saved = readerRepository.save(reader);
             userRepository.save(reader.getUser());
             log.info("Reader profile updated: {}", saved.getReaderId());
-            return readerMapper.toReaderResponse(saved);
+            return populateExtraFields(saved);
         });
     }
 
@@ -153,6 +185,34 @@ public class ReaderService {
         });
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<ReservationResponse> getMyReservations(String username) {
+        Reader reader = getReaderByUsername(username);
+        java.util.List<Reservation> reservations = reservationRepository.findByReader_ReaderIdOrderByReservationDateDesc(reader.getReaderId());
+        return reservations.stream().map(res -> {
+            ReservationResponse response = reservationMapper.toReservationResponse(res);
+            if (ReservationStatus.WAITING.equals(res.getStatus()) || ReservationStatus.UNPROCESSED.equals(res.getStatus())) {
+                response.setEstimatedAvailableDate(calculateEstimatedAvailableDate(res.getBook().getBookId()));
+            }
+            return response;
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
+    private LocalDate calculateEstimatedAvailableDate(String bookId) {
+        java.util.List<DetailBorrowingSlip> activeSlips = detailBorrowingSlipRepository
+                .findByCopy_Book_BookIdAndActualReturnDateIsNullOrderByExpectedReturnDateAsc(bookId);
+        LocalDate today = LocalDate.now();
+        for (DetailBorrowingSlip slip : activeSlips) {
+            if (!slip.getExpectedReturnDate().isBefore(today)) {
+                return slip.getExpectedReturnDate().plusDays(1);
+            }
+        }
+        if (!activeSlips.isEmpty()) {
+            return today.plusDays(1);
+        }
+        return null;
+    }
+
     public ReservationResponse reserveBook(String username, ReservationRequest request) {
         return transactionTemplate.execute(status -> {
             Book book = bookRepository.findByIdForUpdate(request.getBookId())
@@ -170,6 +230,7 @@ public class ReaderService {
             if (copies.stream().anyMatch(copy -> BookCopyStatus.AVAILABLE.equals(copy.getStatus()))) {
                 throw new AppException(ErrorCode.BOOK_STILL_AVAILABLE);
             }
+
             List<String> activeStatuses = List.of(
                     ReservationStatus.UNPROCESSED,
                     ReservationStatus.WAITING,

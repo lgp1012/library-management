@@ -1,5 +1,4 @@
 import axios from "axios";
-import authService from "../services/authService";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -17,6 +16,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let failedQueue = [];
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+//RESPONSE INTERCEPTOR - Handle 401 errors and refresh token if needed
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -30,18 +43,38 @@ api.interceptors.response.use(
         sessionStorage.clear();
         throw error;
       }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            throw err;
+          });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
-        const data = await authService.refreshToken();
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          { token: currentToken },
+        );
 
-        const newToken = data.result.token;
-
+        const newToken = response.data?.result?.token;
         sessionStorage.setItem("token", newToken);
+
+        processQueue(null, newToken);
 
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
+        processQueue(refreshError, null);
         sessionStorage.clear();
         throw refreshError;
       }

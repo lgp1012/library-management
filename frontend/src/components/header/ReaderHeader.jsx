@@ -1,47 +1,17 @@
 import { Bell, Check, LibraryBig, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import Signout from "../auth/Signout";
 
 const ReaderHeader = ({
-  activeTab: activeTabProp,
+  activeTab,
   onTabChange,
   readerInfo,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
-  // Determine active tab based on path if prop is not explicit
-  const getCurrentTab = () => {
-    if (activeTabProp) return activeTabProp;
-    const path = location.pathname;
-    if (path.includes("/reader/borrowed")) return "borrows";
-    if (path.includes("/reader/reservations")) return "reservations";
-    if (path.includes("/reader/history")) return "history";
-    return "explore";
-  };
-
-  const activeTab = getCurrentTab();
-
   const handleTabClick = (tabId) => {
     if (onTabChange) onTabChange(tabId);
-    switch (tabId) {
-      case "borrows":
-        navigate("/reader/borrowed");
-        break;
-      case "reservations":
-        navigate("/reader/reservations");
-        break;
-      case "history":
-        navigate("/reader/history");
-        break;
-      case "explore":
-      default:
-        navigate("/reader/dashboard");
-        break;
-    }
   };
 
   // Notification items state

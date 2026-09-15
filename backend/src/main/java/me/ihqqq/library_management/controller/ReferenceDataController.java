@@ -48,6 +48,22 @@ public class ReferenceDataController {
                 .build();
     }
 
+    @GetMapping("/config/borrowing")
+    @PreAuthorize("isAuthenticated()")
+    ApiResponse<me.ihqqq.library_management.dto.response.BorrowingConfigResponse> getBorrowingConfig() {
+        return ApiResponse.<me.ihqqq.library_management.dto.response.BorrowingConfigResponse>builder()
+                .result(adminService.getBorrowingConfig())
+                .build();
+    }
+
+    @GetMapping("/config/fines")
+    @PreAuthorize("isAuthenticated()")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.FineConfigResponse>> getFineConfigs() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.FineConfigResponse>>builder()
+                .result(adminService.getFineConfigs())
+                .build();
+    }
+
     @GetMapping("/shelves")
     @PreAuthorize("isAuthenticated()")
     ApiResponse<List<ShelfResponse>> getShelves() {

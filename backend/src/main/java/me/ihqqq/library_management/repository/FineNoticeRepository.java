@@ -12,11 +12,17 @@ import java.util.Optional;
 
 public interface FineNoticeRepository extends JpaRepository<FineNotice, String> {
 
+    List<FineNotice> findAllByOrderByPaidStatusAscFineIdDesc();
+
     List<FineNotice> findByDetail_BorrowingSlip_Reader_ReaderIdOrderByPaidStatusAscFineIdAsc(String readerId);
 
     boolean existsByDetail_BorrowingSlip_Reader_ReaderIdAndPaidStatusFalse(String readerId);
 
     boolean existsByDetail_Copy_Book_BookId(String bookId);
+
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("delete from FineNotice f where f.detail.detailId in :detailIds")
+    void deleteByDetailIds(@Param("detailIds") List<String> detailIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select fine from FineNotice fine where fine.fineId = :fineId")

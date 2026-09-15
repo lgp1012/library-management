@@ -1,4 +1,10 @@
-import { createContext, useCallback, useEffect, useState, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import employeeService from "../services/employeeService";
 
 const EmployeeContext = createContext();
@@ -31,10 +37,14 @@ export const EmployeeProvider = ({ children }) => {
         ]);
 
       if (bookRes.status === "fulfilled") setBooks(bookRes.value?.result || []);
-      if (catRes.status === "fulfilled") setCategories(catRes.value?.result || []);
-      if (authorRes.status === "fulfilled") setAuthors(authorRes.value?.result || []);
-      if (pubRes.status === "fulfilled") setPublishers(pubRes.value?.result || []);
-      if (shelfRes.status === "fulfilled") setShelves(shelfRes.value?.result || []);
+      if (catRes.status === "fulfilled")
+        setCategories(catRes.value?.result || []);
+      if (authorRes.status === "fulfilled")
+        setAuthors(authorRes.value?.result || []);
+      if (pubRes.status === "fulfilled")
+        setPublishers(pubRes.value?.result || []);
+      if (shelfRes.status === "fulfilled")
+        setShelves(shelfRes.value?.result || []);
     } catch (error) {
       console.error("Failed to fetch employee data:", error);
     } finally {
@@ -43,6 +53,7 @@ export const EmployeeProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEmployeeData();
   }, [fetchEmployeeData]);
 
@@ -67,7 +78,15 @@ export const EmployeeProvider = ({ children }) => {
       isLoading,
       refreshBooks,
     }),
-    [employeeProfile, books, categories, authors, publishers, shelves, isLoading]
+    [
+      employeeProfile,
+      books,
+      categories,
+      authors,
+      publishers,
+      shelves,
+      isLoading,
+    ],
   );
 
   return (

@@ -4,54 +4,51 @@ import {
   Loader,
   Lock,
   Mail,
+  Phone,
   ShieldCheck,
   User,
+  UserCircle,
   UserPlus,
 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import authService from "../../services/authService";
 import {
   confirmPasswordValidation,
   emailValidation,
   passwordValidation,
+  phoneValidation,
   usernameValidation,
 } from "../../validations/signupValidation";
 
-import { useNavigate } from "react-router-dom";
-import authService from "../../services/authService";
-
 const SignupForm = () => {
-  // Initialize the navigate function from react-router-dom
   const navigate = useNavigate();
 
-  // State to manage form data
   const [formData, setFormData] = useState({
-    name: "",
+    readerName: "",
+    phoneNumber: "",
     email: "",
     username: "",
     password: "",
     confirmPassword: "",
   });
 
-  // State to manage validation errors
-  const [errorsValidation, setErrorsValidation] = useState({
-    email: null,
-    username: null,
-    password: null,
-    confirmPassword: null,
-    phone: null,
-  });
+  const [errorsValidation, setErrorsValidation] = useState({});
+  const [errorAPI, setErrorAPI] = useState("");
 
-  // State to manage password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  //State to manage API signup
-  const [errorAPI, setErrorAPI] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const { email, username, password, confirmPassword } = formData;
+  const {
+    readerName,
+    phoneNumber,
+    email,
+    username,
+    password,
+    confirmPassword,
+  } = formData;
 
-  // Handle input changes and perform validation
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
@@ -62,6 +59,13 @@ const SignupForm = () => {
     let errorMessage = null;
 
     switch (name) {
+      case "readerName":
+        errorMessage =
+          value.trim().length === 0 ? "Họ và tên không được để trống" : null;
+        break;
+      case "phoneNumber":
+        errorMessage = value ? phoneValidation(value) : null;
+        break;
       case "email":
         errorMessage = emailValidation(value);
         break;
@@ -86,7 +90,10 @@ const SignupForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission logic here
+
+    const readerNameError =
+      readerName.trim().length === 0 ? "Họ và tên không được để trống" : null;
+    const phoneError = phoneNumber ? phoneValidation(phoneNumber) : null;
     const emailError = emailValidation(email);
     const usernameError = usernameValidation(username);
     const passwordError = passwordValidation(password);
@@ -96,22 +103,37 @@ const SignupForm = () => {
     );
 
     setErrorsValidation({
+      readerName: readerNameError,
+      phoneNumber: phoneError,
       email: emailError,
       username: usernameError,
       password: passwordError,
       confirmPassword: confirmPasswordError,
     });
 
-    if (emailError && usernameError && passwordError && confirmPasswordError) {
+    if (
+      readerNameError ||
+      phoneError ||
+      emailError ||
+      usernameError ||
+      passwordError ||
+      confirmPasswordError
+    ) {
       return;
     }
 
     setLoading(true);
     try {
-      await authService.signup({ email, username, password });
+      await authService.signup({
+        readerName,
+        phoneNumber,
+        email,
+        username,
+        password,
+      });
       navigate("/signin");
     } catch (error) {
-      setErrorAPI(error.message);
+      setErrorAPI(error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
     }
@@ -120,19 +142,72 @@ const SignupForm = () => {
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-4xl shadow-md ">
       <h2 className="mb-6 text-center text-2xl font-bold text-slate-800">
-        Đăng ký
+        Đăng ký thẻ Độc giả
       </h2>
       <p className="mb-6 text-center text-sm text-slate-600">
         Tạo tài khoản mới để bắt đầu sử dụng hệ thống thư viện.
       </p>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
+        <div className="reader-name-field">
+          <label
+            htmlFor="readerName"
+            className="mb-1 block text-sm font-semibold text-slate-700"
+          >
+            Họ và tên
+            <span className="required text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <UserCircle className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              name="readerName"
+              id="readerName"
+              value={readerName}
+              placeholder="Nguyễn Văn A"
+              onChange={handleChange}
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          {errorsValidation.readerName && (
+            <p className="text-red-500 text-sm">
+              {errorsValidation.readerName}
+            </p>
+          )}
+        </div>
+
+        <div className="phone-field">
+          <label
+            htmlFor="phoneNumber"
+            className="mb-1 block text-sm font-semibold text-slate-700"
+          >
+            Số điện thoại
+          </label>
+          <div className="relative">
+            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              name="phoneNumber"
+              id="phoneNumber"
+              value={phoneNumber}
+              placeholder="0912345678"
+              onChange={handleChange}
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          {errorsValidation.phoneNumber && (
+            <p className="text-red-500 text-sm">
+              {errorsValidation.phoneNumber}
+            </p>
+          )}
+        </div>
+
         <div className="email-field">
           <label
             htmlFor="email"
             className="mb-1 block text-sm font-semibold text-slate-700"
           >
-            {"Email"}
+            Email
             <span className="required text-red-500">*</span>
           </label>
           <div className="relative">
@@ -157,7 +232,7 @@ const SignupForm = () => {
             htmlFor="username"
             className="mb-1 block text-sm font-semibold text-slate-700"
           >
-            {"Tên đăng nhập"}
+            Tên đăng nhập
             <span className="required text-red-500">*</span>
           </label>
           <div className="relative">
@@ -183,7 +258,7 @@ const SignupForm = () => {
             htmlFor="password"
             className="mb-1 block text-sm font-semibold text-slate-700"
           >
-            {"Mật khẩu"}
+            Mật khẩu
             <span className="required text-red-500">*</span>
           </label>
           <div className="relative">
@@ -220,7 +295,7 @@ const SignupForm = () => {
             htmlFor="confirm-password"
             className="mb-1 block text-sm font-semibold text-slate-700 "
           >
-            {"Xác nhận mật khẩu"}
+            Xác nhận mật khẩu
             <span className="required text-red-500">*</span>
           </label>
           <div className="relative">
@@ -267,7 +342,7 @@ const SignupForm = () => {
           ) : (
             <UserPlus className="h-4 w-4" />
           )}
-          Đăng ký
+          Đăng ký Thẻ Độc giả
         </button>
       </form>
     </div>

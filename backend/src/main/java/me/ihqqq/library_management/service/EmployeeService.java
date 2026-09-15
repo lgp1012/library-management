@@ -77,6 +77,7 @@ import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -244,11 +245,33 @@ public class EmployeeService {
         transactionTemplate.executeWithoutResult(status -> {
             Book book = bookRepository.findById(bookId)
                     .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+
             if (bookCopyRepository.existsByBook_BookId(bookId)) {
                 throw new AppException(ErrorCode.BOOK_HAS_COPIES);
             }
+
+            reservationRepository.deleteByBook_BookId(bookId);
             bookRepository.delete(book);
             writeLog(employeeUsername, "Deleted book " + bookId);
+        });
+    }
+
+    public void deleteBookCopy(String copyId, String employeeUsername) {
+        transactionTemplate.executeWithoutResult(status -> {
+            if (detailBorrowingSlipRepository.existsByCopy_CopyIdAndActualReturnDateIsNull(copyId)) {
+                throw new AppException(ErrorCode.COPY_HAS_BORROWING_HISTORY); // Will change message in ErrorCode soon
+            }
+
+            List<String> detailIds = detailBorrowingSlipRepository.findDetailIdsByCopyId(copyId);
+            if (!detailIds.isEmpty()) {
+                fineNoticeRepository.deleteByDetailIds(detailIds);
+                detailBorrowingSlipRepository.deleteByCopy_CopyId(copyId);
+            }
+
+            BookCopy copy = bookCopyRepository.findById(copyId)
+                    .orElseThrow(() -> new AppException(ErrorCode.COPY_NOT_FOUND));
+            bookCopyRepository.delete(copy);
+            writeLog(employeeUsername, "Deleted book copy " + copyId);
         });
     }
 
@@ -352,7 +375,8 @@ public class EmployeeService {
             String fineId = null;
             long overdueDays = Math.max(0, ChronoUnit.DAYS.between(detail.getExpectedReturnDate(), today));
             if (overdueDays > 0) {
-                FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
+                FineConfig config = fineConfigRepository.findByFineTypeIgnoreCase("OVERDUE")
+                        .orElseGet(() -> fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null));
                 if (config != null) {
                     FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
                             .fineId(generateFineId())
@@ -366,12 +390,17 @@ public class EmployeeService {
             }
             if (BookCopyStatus.LOST.equalsIgnoreCase(request.getCondition())
                     || BookCopyStatus.DAMAGED.equalsIgnoreCase(request.getCondition())) {
-                FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null);
-                if (config != null) {
+                FineConfig config = fineConfigRepository.findByFineTypeIgnoreCase(request.getCondition())
+                        .orElseGet(() -> fineConfigRepository.findTopByOrderByUpdatedAtDesc().orElse(null));
+                BigDecimal finePrice = request.getFinePrice();
+                if (finePrice == null && config != null) {
+                    finePrice = config.getFineRatePerDay();
+                }
+                if (finePrice != null) {
                     FineNotice fine = fineNoticeRepository.save(FineNotice.builder()
                             .fineId(generateFineId())
                             .detail(detail)
-                            .finePrice(config.getFineRatePerDay())
+                            .finePrice(finePrice)
                             .reason(request.getCondition())
                             .paidStatus(false)
                             .build());
@@ -429,10 +458,15 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<FineNoticeResponse> getAllFines() {
-        return fineNoticeRepository.findAllByOrderByPaidStatusAscFineIdDesc()
+    public List<me.ihqqq.library_management.dto.response.FineConfigResponse> getFineConfigs() {
+        return fineConfigRepository.findAll()
                 .stream()
-                .map(this::toFineResponse)
+                .map(config -> me.ihqqq.library_management.dto.response.FineConfigResponse.builder()
+                        .configId(config.getConfigId())
+                        .fineType(config.getFineType())
+                        .fineRatePerDay(config.getFineRatePerDay())
+                        .descriptionFine(config.getDescriptionFine())
+                        .build())
                 .toList();
     }
 
@@ -483,8 +517,29 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<ReservationResponse> getPendingReservations() {
-        return reservationRepository.findByStatusOrderByReservationDateAsc(ReservationStatus.UNPROCESSED)
-                .stream().map(reservationMapper::toReservationResponse).toList();
+        return reservationRepository.findByStatusInOrderByReservationDateAsc(
+                List.of(ReservationStatus.UNPROCESSED, ReservationStatus.WAITING))
+                .stream().map(res -> {
+                    ReservationResponse response = reservationMapper.toReservationResponse(res);
+                    response.setEstimatedAvailableDate(calculateEstimatedAvailableDate(res.getBook().getBookId()));
+                    return response;
+                }).toList();
+    }
+
+    private LocalDate calculateEstimatedAvailableDate(String bookId) {
+        List<DetailBorrowingSlip> activeSlips = detailBorrowingSlipRepository
+                .findByCopy_Book_BookIdAndActualReturnDateIsNullOrderByExpectedReturnDateAsc(bookId);
+        
+        LocalDate today = LocalDate.now();
+        for (DetailBorrowingSlip slip : activeSlips) {
+            if (!slip.getExpectedReturnDate().isBefore(today)) {
+                return slip.getExpectedReturnDate().plusDays(1);
+            }
+        }
+        if (!activeSlips.isEmpty()) {
+            return today.plusDays(1);
+        }
+        return null;
     }
 
     public ReservationResponse processReservation(
@@ -504,22 +559,40 @@ public class EmployeeService {
                     && !reservation.getStatus().equals(ReservationStatus.WAITING)) {
                 throw new AppException(ErrorCode.RESERVATION_NOT_FOUND);
             }
-            BookCopy reservedCopy = bookCopyRepository
+            
+            Optional<BookCopy> availableCopy = bookCopyRepository
                     .findFirstByBook_BookIdAndStatusOrderByCopyIdAsc(
                             reservation.getBook().getBookId(),
                             BookCopyStatus.AVAILABLE
-                    )
-                    .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE));
-            reservedCopy.setStatus(BookCopyStatus.RESERVED);
-            bookCopyRepository.save(reservedCopy);
-            reservation.setStatus(ReservationStatus.PROCESSED);
-            reservation.setProcessedByEmployeeId(employee.getEmployeeId());
-            reservation.setExpiryDate(LocalDate.now().plusDays(request.getExpiryDays()));
+                    );
+                    
+            if (availableCopy.isPresent()) {
+                BookCopy reservedCopy = availableCopy.get();
+                reservedCopy.setStatus(BookCopyStatus.RESERVED);
+                bookCopyRepository.save(reservedCopy);
+                reservation.setStatus(ReservationStatus.PROCESSED);
+                reservation.setProcessedByEmployeeId(employee.getEmployeeId());
+                reservation.setExpiryDate(LocalDate.now().plusDays(request.getExpiryDays()));
+                notifyReader(reservation.getReader().getUser(), "Sách đặt trước đã sẵn sàng",
+                        "Vui lòng nhận sách trước ngày " + reservation.getExpiryDate() + ".", "RESERVATION");
+            } else {
+                long activeBorrowings = detailBorrowingSlipRepository.countByCopy_Book_BookIdAndActualReturnDateIsNull(reservation.getBook().getBookId());
+                if (activeBorrowings == 0) {
+                    throw new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE);
+                }
+                reservation.setStatus(ReservationStatus.WAITING);
+                reservation.setProcessedByEmployeeId(employee.getEmployeeId());
+                // Khong set expiryDate vi sach chua co
+                notifyReader(reservation.getReader().getUser(), "Phiếu đặt trước đã được duyệt",
+                        "Sách hiện đang được mượn. Chúng tôi sẽ thông báo ngay khi có sách trả về.", "RESERVATION");
+            }
+            
             Reservation saved = reservationRepository.save(reservation);
-            notifyReader(reservation.getReader().getUser(), "Sách đặt trước đã sẵn sàng",
-                    "Vui lòng nhận sách trước ngày " + reservation.getExpiryDate() + ".", "RESERVATION");
             writeLog(employeeUsername, "Processed reservation " + reservationId);
-            return reservationMapper.toReservationResponse(saved);
+            
+            ReservationResponse response = reservationMapper.toReservationResponse(saved);
+            response.setEstimatedAvailableDate(calculateEstimatedAvailableDate(reservation.getBook().getBookId()));
+            return response;
         });
     }
 
@@ -538,10 +611,20 @@ public class EmployeeService {
                 Reservation reservation = reservationRepository.findByIdForUpdate(
                                 candidate.getReservationId())
                         .orElseThrow(() -> new AppException(ErrorCode.RESERVATION_NOT_FOUND));
-                boolean canExpire = ReservationStatus.WAITING.equals(reservation.getStatus())
+                boolean canExpire = ReservationStatus.PROCESSED.equals(reservation.getStatus())
+                        || ReservationStatus.WAITING.equals(reservation.getStatus())
                         || ReservationStatus.UNPROCESSED.equals(reservation.getStatus());
                 if (canExpire && reservation.getExpiryDate() != null
                         && reservation.getExpiryDate().isBefore(LocalDate.now())) {
+                    if (ReservationStatus.PROCESSED.equals(reservation.getStatus())) {
+                        bookCopyRepository
+                                .findFirstByBook_BookIdAndStatusOrderByCopyIdAsc(
+                                        reservation.getBook().getBookId(), BookCopyStatus.RESERVED)
+                                .ifPresent(copy -> {
+                                    copy.setStatus(BookCopyStatus.AVAILABLE);
+                                    bookCopyRepository.save(copy);
+                                });
+                    }
                     reservation.setStatus(ReservationStatus.EXPIRED);
                     reservationRepository.save(reservation);
                     count++;

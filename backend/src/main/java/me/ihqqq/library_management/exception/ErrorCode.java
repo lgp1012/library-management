@@ -99,6 +99,7 @@ public enum ErrorCode {
     COPY_ID_REQUIRED(1765, "Copy id is required", HttpStatus.BAD_REQUEST),
     COPY_ID_TOO_LONG(1766, "Copy id must not exceed 10 characters", HttpStatus.BAD_REQUEST),
     COPY_ID_EXISTED(1767, "Copy id already exists", HttpStatus.BAD_REQUEST),
+    COPY_HAS_BORROWING_HISTORY(1790, "Cannot delete a book copy that is currently being borrowed", HttpStatus.BAD_REQUEST),
     COPY_NOT_FOUND(1768, "Book copy not found", HttpStatus.NOT_FOUND),
     INVALID_COPY_STATUS(1769, "Invalid book copy status", HttpStatus.BAD_REQUEST),
     READER_ID_REQUIRED(1770, "Reader id is required", HttpStatus.BAD_REQUEST),
