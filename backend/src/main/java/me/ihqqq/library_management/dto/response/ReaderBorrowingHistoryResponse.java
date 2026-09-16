@@ -10,23 +10,22 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
+/** Ánh xạ view vw_ReaderBorrowingHistory. */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class FineNoticeResponse {
-    String fineId;
-    String detailId;
-    String borrowingId;
+public class ReaderBorrowingHistoryResponse {
     String readerId;
-    String readerName;
-    BigDecimal finePrice;
-    String reason;
-    boolean paidStatus;
-    LocalDate paidDate;
-    String collectedByEmployeeId;
-    String message;
+    String bookName;
+    String copyId;
+    LocalDateTime borrowDate;
+    LocalDate expectedReturnDate;
+    LocalDate actualReturnDate;
+    BigDecimal fineAmount;
+    Boolean paidStatus;
 }

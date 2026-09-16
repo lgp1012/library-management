@@ -65,6 +65,7 @@ public class ReaderService {
     ReaderMapper readerMapper;
     ReservationMapper reservationMapper;
     TransactionTemplate transactionTemplate;
+    javax.sql.DataSource dataSource;
 
     /**
      * Đăng ký tài khoản độc giả (READER > Đăng ký tài khoản).
@@ -217,6 +218,23 @@ public class ReaderService {
     }
 
     public ReservationResponse reserveBook(String username, ReservationRequest request) {
+        return reserveBook(username, request, false, 0);
+    }
+
+    /**
+     * demoDeadlock=true chỉ dùng khi bật "Chế độ demo" trên UI: bỏ qua các khoá thứ tự an toàn
+     * (findByIdForUpdate trên book) mà luồng thật vẫn dùng để tránh đặt trước lâu; thay vào đó
+     * khoá reservations trước rồi mới khoá detail_borrowing_slips — nếu một độc giả khác đang
+     * gia hạn (renewBorrowing demo) theo thứ tự ngược lại, SQL Server sẽ phát hiện deadlock THẬT.
+     */
+    public ReservationResponse reserveBook(String username, ReservationRequest request, boolean demoDeadlock, long demoDelayMs) {
+        if (!demoDeadlock) {
+            return reserveBookSafe(username, request);
+        }
+        return reserveBookDemoDeadlock(username, request, demoDelayMs);
+    }
+
+    private ReservationResponse reserveBookSafe(String username, ReservationRequest request) {
         return transactionTemplate.execute(status -> {
             Book book = bookRepository.findByIdForUpdate(request.getBookId())
                     .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
@@ -259,7 +277,79 @@ public class ReaderService {
         });
     }
 
+    private ReservationResponse reserveBookDemoDeadlock(String username, ReservationRequest request, long demoDelayMs) {
+        Reader reader = readerRepository.findByUser_Username(username)
+                .orElseThrow(() -> new AppException(ErrorCode.READER_NOT_FOUND));
+        Book book = bookRepository.findById(request.getBookId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+        try (java.sql.Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            c.setTransactionIsolation(java.sql.Connection.TRANSACTION_SERIALIZABLE);
+            String reservationId = generateUniqueReservationId();
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO reservations (reservation_id, reader_id, book_id, reservation_date, status) VALUES (?,?,?,?,?)")) {
+                ps.setString(1, reservationId);
+                ps.setString(2, reader.getReaderId());
+                ps.setString(3, book.getBookId());
+                ps.setDate(4, java.sql.Date.valueOf(LocalDate.now()));
+                ps.setString(5, ReservationStatus.UNPROCESSED);
+                ps.executeUpdate();
+            }
+            if (demoDelayMs > 0) {
+                try {
+                    Thread.sleep(Math.min(demoDelayMs, 15000));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            // Khoá dòng mượn hiện tại của sách này để chuẩn bị gửi nhắc trả (tính năng thật,
+            // nhưng khi demo=true được thực hiện SAU khi đã khoá reservations, ngược thứ tự
+            // với renewBorrowing demo -> có thể khoá chéo thật với SQL Server.
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "UPDATE detail_borrowing_slips SET renewal_status = renewal_status " +
+                            "WHERE copy_id IN (SELECT copy_id FROM book_copies WHERE book_id = ?) AND actual_return_date IS NULL")) {
+                ps.setString(1, book.getBookId());
+                ps.executeUpdate();
+            }
+            c.commit();
+            createNotification(reader.getUser(), "Đặt trước sách",
+                    "Đặt trước sách \"" + book.getBookName() + "\" thành công.", "RESERVATION");
+            return ReservationResponse.builder()
+                    .reservationId(reservationId)
+                    .bookId(book.getBookId())
+                    .readerId(reader.getReaderId())
+                    .status(ReservationStatus.UNPROCESSED)
+                    .build();
+        } catch (java.sql.SQLException e) {
+            if (isDeadlock(e)) {
+                throw new AppException(ErrorCode.TRANSACTION_DEADLOCK);
+            }
+            throw new RuntimeException(e);
+        }
+    }
+
+    private boolean isDeadlock(java.sql.SQLException e) {
+        return e.getErrorCode() == 1205
+                || (e.getMessage() != null && e.getMessage().toLowerCase().contains("deadlock"));
+    }
+
     public DetailBorrowingSlipResponse renewBorrowing(String username, String detailId) {
+        return renewBorrowing(username, detailId, false, 0);
+    }
+
+    /**
+     * demoDeadlock=true bỏ qua khoá thứ tự an toàn (findByIdForUpdate trên book) mà luồng thật
+     * dùng, để khoá detail_borrowing_slips trước rồi mới khoá reservations — ngược thứ tự với
+     * reserveBook demo, nhằm tái hiện khoá chéo thật với SQL Server.
+     */
+    public DetailBorrowingSlipResponse renewBorrowing(String username, String detailId, boolean demoDeadlock, long demoDelayMs) {
+        if (!demoDeadlock) {
+            return renewBorrowingSafe(username, detailId);
+        }
+        return renewBorrowingDemoDeadlock(username, detailId, demoDelayMs);
+    }
+
+    private DetailBorrowingSlipResponse renewBorrowingSafe(String username, String detailId) {
         return transactionTemplate.execute(status -> {
             DetailBorrowingSlip snapshot = detailBorrowingSlipRepository.findById(detailId)
                     .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
@@ -303,6 +393,46 @@ public class ReaderService {
                     .renewalStatus(saved.getRenewalStatus())
                     .build();
         });
+    }
+
+    private DetailBorrowingSlipResponse renewBorrowingDemoDeadlock(String username, String detailId, long demoDelayMs) {
+        DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
+                .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+        Book book = detail.getCopy().getBook();
+        try (java.sql.Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            c.setTransactionIsolation(java.sql.Connection.TRANSACTION_SERIALIZABLE);
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "UPDATE detail_borrowing_slips SET renewal_status = 'PENDING' WHERE detail_id = ?")) {
+                ps.setString(1, detailId);
+                ps.executeUpdate();
+            }
+            if (demoDelayMs > 0) {
+                try {
+                    Thread.sleep(Math.min(demoDelayMs, 15000));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "UPDATE reservations SET status = status WHERE book_id = ?")) {
+                ps.setString(1, book.getBookId());
+                ps.executeUpdate();
+            }
+            c.commit();
+            return DetailBorrowingSlipResponse.builder()
+                    .detailId(detailId)
+                    .bookId(book.getBookId())
+                    .bookName(book.getBookName())
+                    .expectedReturnDate(detail.getExpectedReturnDate())
+                    .renewalStatus("PENDING")
+                    .build();
+        } catch (java.sql.SQLException e) {
+            if (isDeadlock(e)) {
+                throw new AppException(ErrorCode.TRANSACTION_DEADLOCK);
+            }
+            throw new RuntimeException(e);
+        }
     }
 
     /**

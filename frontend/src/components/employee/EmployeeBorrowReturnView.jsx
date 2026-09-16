@@ -77,10 +77,11 @@ export default function EmployeeBorrowReturnView() {
 // ==========================================
 const BorrowingsDashboard = ({ borrowings, isLoading, fetchBorrowings }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [phoneVerify, setPhoneVerify] = useState(false);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return borrowings.filter((b) => 
+    return borrowings.filter((b) =>
       b.readerName?.toLowerCase().includes(q) ||
       b.readerId?.toLowerCase().includes(q) ||
       b.bookName?.toLowerCase().includes(q) ||
@@ -90,10 +91,18 @@ const BorrowingsDashboard = ({ borrowings, isLoading, fetchBorrowings }) => {
   }, [borrowings, searchQuery]);
 
   const handleRenew = async (detailId) => {
-    if (!window.confirm("Gia hạn thêm 14 ngày cho sách này?")) return;
+    if (!phoneVerify && !window.confirm("Gia hạn thêm 14 ngày cho sách này?")) return;
+    if (phoneVerify) {
+      toast.info(
+        `[${detailId}] Đang xác thực qua điện thoại (khoảng 10s) trước khi ghi nhận...`,
+        { autoClose: 9000 },
+      );
+    }
     try {
-      await employeeService.renewBorrowing(detailId);
-      toast.success("Gia hạn thành công!");
+      const res = await employeeService.renewBorrowing(detailId, phoneVerify ? 10000 : 0);
+      toast.success(
+        `[${detailId}] Gia hạn thành công! Hạn mới: ${res.result?.expectedReturnDate ?? "?"}`
+      );
       fetchBorrowings();
     } catch (err) {
       toast.error(err.response?.data?.message || "Lỗi khi gia hạn.");
@@ -106,6 +115,15 @@ const BorrowingsDashboard = ({ borrowings, isLoading, fetchBorrowings }) => {
         <div>
           <h3 className="text-lg font-bold text-slate-900">Danh sách phiếu mượn đang lưu hành</h3>
           <p className="text-sm text-slate-500">Theo dõi các bản sao sách đang ở tay độc giả</p>
+          <label className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-slate-200 transition">
+            <input
+              type="checkbox"
+              checked={phoneVerify}
+              onChange={(e) => setPhoneVerify(e.target.checked)}
+              className="accent-sky-600"
+            />
+            Xác thực qua điện thoại trước khi ghi nhận (dành cho yêu cầu gia hạn qua tổng đài)
+          </label>
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
