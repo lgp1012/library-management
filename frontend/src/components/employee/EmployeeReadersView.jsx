@@ -2,10 +2,13 @@ import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   BookMarked,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Plus,
   RefreshCcw,
@@ -27,6 +30,8 @@ export default function EmployeeReadersView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReader, setSelectedReader] = useState(null);
   const [editingReader, setEditingReader] = useState(null);
+  const [overdueList, setOverdueList] = useState([]);
+  const [showOverdue, setShowOverdue] = useState(false);
 
   const fetchReaders = async () => {
     setIsLoading(true);
@@ -41,8 +46,18 @@ export default function EmployeeReadersView() {
     }
   };
 
+  const fetchOverdue = async () => {
+    try {
+      const data = await employeeService.getOverdueReaders();
+      setOverdueList(data.result || []);
+    } catch (err) {
+      console.error("Failed to fetch overdue readers:", err);
+    }
+  };
+
   useEffect(() => {
     fetchReaders();
+    fetchOverdue();
   }, []);
 
   const filteredReaders = useMemo(() => {
@@ -80,6 +95,47 @@ export default function EmployeeReadersView() {
           </p>
         </div>
       </div>
+
+      {overdueList.length > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setShowOverdue((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-3.5 text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-rose-800">
+              <AlertTriangle className="h-4 w-4" />
+              {overdueList.length} độc giả đang trễ hạn trả sách
+            </span>
+            {showOverdue ? (
+              <ChevronUp className="h-4 w-4 text-rose-600" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-rose-600" />
+            )}
+          </button>
+          {showOverdue && (
+            <div className="border-t border-rose-200 divide-y divide-rose-100 max-h-64 overflow-y-auto">
+              {overdueList.map((o, idx) => {
+                const reader = readers.find((r) => r.readerId === o.readerId);
+                return (
+                  <button
+                    key={`${o.readerId}-${o.copyId}-${idx}`}
+                    onClick={() => reader && setSelectedReader(reader)}
+                    className="w-full flex items-center justify-between px-5 py-2.5 text-left hover:bg-rose-100/60 transition"
+                  >
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-800">{o.readerName}</span>
+                      <span className="text-slate-500"> — {o.bookName}</span>
+                    </div>
+                    <div className="text-xs font-bold text-rose-700 whitespace-nowrap ml-3">
+                      Trễ {o.overdueDays} ngày · {o.estimatedFine?.toLocaleString("vi-VN")}đ
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
         <div className="relative max-w-2xl">
@@ -249,16 +305,19 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
   const [fineReason, setFineReason] = useState("");
   const [reviewBeforeSave, setReviewBeforeSave] = useState(false);
   const [creatingFine, setCreatingFine] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const fetchData = async (fast = false) => {
     setIsLoading(true);
     try {
-      const [borRes, finesRes] = await Promise.all([
+      const [borRes, finesRes, historyRes] = await Promise.all([
         employeeService.getReaderBorrowings(reader.readerId),
         employeeService.getFines(reader.readerId, fast),
+        employeeService.getReaderHistory(reader.readerId),
       ]);
       setBorrowings(borRes.result || []);
       setFines(finesRes.result || []);
+      setHistory((historyRes.result || []).filter((h) => h.actualReturnDate));
     } catch (error) {
       console.error("Failed to load reader details:", error);
       toast.error("Không thể tải thông tin chi tiết.");
@@ -356,7 +415,7 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
   const daysDiff = dayjs(reader.membershipExpiry).diff(dayjs(), "day");
 
   const currentBorrowings = borrowings.filter((b) => !b.actualReturnDate);
-  const historyBorrowings = borrowings.filter((b) => b.actualReturnDate);
+  const historyBorrowings = history;
   const unpaidFinesTotal = fines
     .filter((f) => !f.paidStatus)
     .reduce((sum, f) => sum + f.finePrice, 0);
@@ -631,7 +690,7 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                             Ngày trả thực tế
                           </th>
                           <th className="px-4 py-3 font-semibold">
-                            Phiếu mượn
+                            Tiền phạt
                           </th>
                         </tr>
                       </thead>
@@ -646,22 +705,24 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                             </td>
                           </tr>
                         ) : (
-                          historyBorrowings.map((b) => (
+                          historyBorrowings.map((b, idx) => (
                             <tr
-                              key={b.detailId}
+                              key={`${b.copyId}-${idx}`}
                               className="hover:bg-slate-50/50"
                             >
                               <td className="px-4 py-3 font-bold text-slate-700">
                                 {b.bookName}
                               </td>
                               <td className="px-4 py-3">
-                                {b.borrowingDate || "N/A"}
+                                {b.borrowDate ? dayjs(b.borrowDate).format("DD/MM/YYYY") : "N/A"}
                               </td>
                               <td className="px-4 py-3 font-medium text-emerald-600">
                                 {b.actualReturnDate}
                               </td>
                               <td className="px-4 py-3 font-mono text-xs">
-                                {b.borrowingId}
+                                {b.fineAmount > 0
+                                  ? `${b.fineAmount.toLocaleString("vi-VN")}đ${b.paidStatus ? " (đã thu)" : ""}`
+                                  : "—"}
                               </td>
                             </tr>
                           ))

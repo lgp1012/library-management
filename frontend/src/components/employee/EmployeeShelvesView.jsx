@@ -11,6 +11,43 @@ const EmployeeShelvesView = () => {
   const [audit, setAudit] = useState(null); // { auditId, count1, count2 }
   const [auditLoading, setAuditLoading] = useState(false);
 
+  // Tra cứu vị trí sách (vw_BookCatalogDetail + vw_AvailableBooks)
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [lookupResults, setLookupResults] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [expandedBookId, setExpandedBookId] = useState(null);
+  const [locationsByBook, setLocationsByBook] = useState({});
+
+  const handleLookupSearch = async () => {
+    if (!lookupQuery.trim()) return;
+    setLookupLoading(true);
+    setExpandedBookId(null);
+    try {
+      const res = await employeeService.searchCatalog(lookupQuery.trim());
+      setLookupResults(res.result || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi khi tra cứu.");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const handleExpandBook = async (bookId) => {
+    if (expandedBookId === bookId) {
+      setExpandedBookId(null);
+      return;
+    }
+    setExpandedBookId(bookId);
+    if (!locationsByBook[bookId]) {
+      try {
+        const res = await employeeService.getAvailableLocations(bookId);
+        setLocationsByBook((prev) => ({ ...prev, [bookId]: res.result || [] }));
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Lỗi khi tra cứu vị trí.");
+      }
+    }
+  };
+
   const handleStartAudit = async (shelfId) => {
     setAuditLoading(true);
     try {
@@ -143,6 +180,84 @@ const EmployeeShelvesView = () => {
             Quản lý, tra cứu vị trí tài liệu, kiểm kê số lượng sách và bản sao trên từng kệ thực tế.
           </p>
         </div>
+      </div>
+
+      {/* Tra cứu vị trí sách theo tên (tìm xuyên suốt mọi kệ) */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+        <h3 className="text-sm font-bold text-slate-800 mb-2">Tra cứu vị trí sách</h3>
+        <div className="flex gap-2">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={lookupQuery}
+              onChange={(e) => setLookupQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLookupSearch()}
+              placeholder="Nhập tên sách cần tìm vị trí trên kệ..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-sky-500 focus:bg-white transition-all"
+            />
+          </div>
+          <button
+            onClick={handleLookupSearch}
+            disabled={lookupLoading}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50"
+          >
+            {lookupLoading ? "Đang tìm..." : "Tìm"}
+          </button>
+        </div>
+
+        {lookupResults && (
+          <div className="mt-3 space-y-2">
+            {lookupResults.length === 0 ? (
+              <div className="text-xs text-slate-400 py-2">Không tìm thấy sách phù hợp.</div>
+            ) : (
+              lookupResults.map((b) => (
+                <div key={b.bookId} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => handleExpandBook(b.bookId)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-50 transition"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-slate-800">{b.bookName}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {b.authors || "Chưa rõ tác giả"} {b.publisherName ? `· ${b.publisherName}` : ""}
+                      </div>
+                    </div>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        b.availableCopies > 0
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500 border border-slate-200"
+                      }`}
+                    >
+                      {b.availableCopies}/{b.totalCopies} sẵn sàng
+                    </span>
+                  </button>
+                  {expandedBookId === b.bookId && (
+                    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs">
+                      {!locationsByBook[b.bookId] ? (
+                        <span className="text-slate-400">Đang tải...</span>
+                      ) : locationsByBook[b.bookId].length === 0 ? (
+                        <span className="text-slate-400">Hiện không có bản sao nào sẵn sàng.</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {locationsByBook[b.bookId].map((loc) => (
+                            <span
+                              key={loc.copyId}
+                              className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 font-mono text-slate-700"
+                            >
+                              {loc.copyId} — {loc.shelfName} ({loc.position})
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Search Bar */}

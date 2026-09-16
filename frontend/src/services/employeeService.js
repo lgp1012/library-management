@@ -149,6 +149,24 @@ const employeeService = {
     const res = await api.get("/shelves");
     return res.data;
   },
+
+  // --- REPORTS (dùng các view CSDL: vw_OverdueReaders, vw_BookCatalogDetail, vw_AvailableBooks, vw_ReaderBorrowingHistory) ---
+  getOverdueReaders: async () => {
+    const res = await api.get("/employees/reports/overdue");
+    return res.data;
+  },
+  searchCatalog: async (keyword) => {
+    const res = await api.get(`/employees/reports/catalog-search?q=${encodeURIComponent(keyword || "")}`);
+    return res.data;
+  },
+  getAvailableLocations: async (bookId) => {
+    const res = await api.get(`/employees/reports/available-locations?bookId=${bookId}`);
+    return res.data;
+  },
+  getReaderHistory: async (readerId) => {
+    const res = await api.get(`/employees/reports/readers/${readerId}/history`);
+    return res.data;
+  },
 };
 
 export default employeeService;
