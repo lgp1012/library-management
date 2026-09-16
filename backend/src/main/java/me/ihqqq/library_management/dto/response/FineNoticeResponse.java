@@ -28,4 +28,5 @@ public class FineNoticeResponse {
     boolean paidStatus;
     LocalDate paidDate;
     String collectedByEmployeeId;
+    String message;
 }

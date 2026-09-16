@@ -123,6 +123,7 @@ public enum ErrorCode {
     RENEWAL_ALREADY_REQUESTED(1790, "Đã có yêu cầu gia hạn đang chờ duyệt.", HttpStatus.BAD_REQUEST),
     RESERVATION_ALREADY_CLOSED(1788, "Reservation has already been completed or cancelled", HttpStatus.BAD_REQUEST),
     NOTIFICATION_NOT_FOUND(1789, "Notification not found or does not belong to you", HttpStatus.NOT_FOUND),
+    TRANSACTION_DEADLOCK(1900, "Giao dịch thất bại do xung đột với một giao dịch khác đang xử lý. Vui lòng thử lại.", HttpStatus.CONFLICT),
     ;
 
     int code;
