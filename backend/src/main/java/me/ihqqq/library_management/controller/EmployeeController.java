@@ -127,6 +127,15 @@ public class EmployeeController {
         return ApiResponse.<Void>builder().message("Book deleted successfully").build();
     }
 
+    @DeleteMapping("/copies/{copyId}")
+    ApiResponse<Void> deleteBookCopy(
+            @PathVariable String copyId,
+            Authentication authentication
+    ) {
+        employeeService.deleteBookCopy(copyId, authentication.getName());
+        return ApiResponse.<Void>builder().message("Book copy deleted successfully").build();
+    }
+
     @PutMapping("/inventory")
     ApiResponse<BookCopyResponse> updateInventory(
             @RequestBody @Valid InventoryItemRequest request,
@@ -155,6 +164,23 @@ public class EmployeeController {
     ) {
         return ApiResponse.<EmployeeOperationResponse>builder()
                 .result(employeeService.returnBook(request, authentication.getName()))
+                .build();
+    }
+
+    @GetMapping("/borrowings/renewals/pending")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>> getPendingRenewals() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>>builder()
+                .result(employeeService.getPendingRenewals())
+                .build();
+    }
+
+    @PatchMapping("/borrowings/{detailId}/renew/reject")
+    ApiResponse<EmployeeOperationResponse> rejectRenewal(
+            @PathVariable String detailId,
+            Authentication authentication
+    ) {
+        return ApiResponse.<EmployeeOperationResponse>builder()
+                .result(employeeService.rejectRenewal(detailId, authentication.getName()))
                 .build();
     }
 
@@ -200,6 +226,13 @@ public class EmployeeController {
     ) {
         return ApiResponse.<FineNoticeResponse>builder()
                 .result(employeeService.collectFine(fineId, authentication.getName()))
+                .build();
+    }
+
+    @GetMapping("/fines/config")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.FineConfigResponse>> getFineConfigs() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.FineConfigResponse>>builder()
+                .result(employeeService.getFineConfigs())
                 .build();
     }
 

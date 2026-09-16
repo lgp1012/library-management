@@ -52,6 +52,11 @@ const EmployeeSidebar = ({ activeTab, onTabChange }) => {
           icon: CalendarClock,
         },
         {
+          id: "reservations",
+          label: "Xử lý Đặt Trước",
+          icon: BookOpen,
+        },
+        {
           id: "fines",
           label: "Thu Phí Phạt",
           icon: Banknote,

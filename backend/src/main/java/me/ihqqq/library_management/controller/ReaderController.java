@@ -45,6 +45,14 @@ public class ReaderController {
                 .build();
     }
 
+    @GetMapping("/me/borrowings")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<DetailBorrowingSlipResponse>> getMyBorrowings(Authentication authentication) {
+        return ApiResponse.<java.util.List<DetailBorrowingSlipResponse>>builder()
+                .result(readerService.getMyBorrowings(authentication.getName()))
+                .build();
+    }
+
     @GetMapping("/me")
     @PreAuthorize("hasRole('READER')")
     ApiResponse<ReaderResponse> getMyProfile(Authentication authentication) {
@@ -73,6 +81,14 @@ public class ReaderController {
     /**
      * Đặt trước sách.
      */
+    @GetMapping("/me/reservations")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<ReservationResponse>> getMyReservations(Authentication authentication) {
+        return ApiResponse.<java.util.List<ReservationResponse>>builder()
+                .result(readerService.getMyReservations(authentication.getName()))
+                .build();
+    }
+
     @PostMapping("/me/reservations")
     @PreAuthorize("hasRole('READER')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -104,6 +120,14 @@ public class ReaderController {
                 .build();
     }
 
+        @GetMapping("/me/fines")
+    @PreAuthorize("hasRole('READER')")
+    ApiResponse<java.util.List<me.ihqqq.library_management.dto.response.FineNoticeResponse>> getMyFines(Authentication authentication) {
+        return ApiResponse.<java.util.List<me.ihqqq.library_management.dto.response.FineNoticeResponse>>builder()
+                .result(readerService.getMyFines(authentication.getName()))
+                .build();
+    }
+
     @PatchMapping("/me/notifications/{notificationId}/read")
     @PreAuthorize("hasRole('READER')")
     ApiResponse<Void> markNotificationAsRead(Authentication authentication,
@@ -112,3 +136,4 @@ public class ReaderController {
         return ApiResponse.<Void>builder().build();
     }
 }
+

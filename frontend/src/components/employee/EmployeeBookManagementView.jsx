@@ -7,6 +7,7 @@ import {
   Search,
   Settings,
   XCircle,
+  Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "react-toastify";
@@ -47,6 +48,26 @@ export default function EmployeeBookManagementView() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteBook = async (e, bookId) => {
+    e.stopPropagation();
+    if (!window.confirm("Bạn có chắc chắn muốn xóa sách này? Toàn bộ các bản sao của sách này cũng sẽ bị xóa khỏi hệ thống.")) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    try {
+      await employeeService.deleteBook(bookId);
+      toast.success("Xóa sách thành công");
+      refreshBooks();
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa sách");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Metrics Calculation
   const metrics = useMemo(() => {
@@ -228,6 +249,14 @@ export default function EmployeeBookManagementView() {
                 <div className="h-48 bg-slate-100 flex items-center justify-center relative overflow-hidden group-hover:bg-sky-50 transition-colors">
                   <div className="absolute inset-0 bg-linear-to-br from-sky-400/10 to-transparent"></div>
                   <BookOpen className="h-12 w-12 text-sky-200 group-hover:text-sky-300 transition-colors drop-shadow-sm" />
+                  <button
+                    onClick={(e) => handleDeleteBook(e, book.bookId)}
+                    disabled={isDeleting}
+                    className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-full transition-colors backdrop-blur-sm shadow-xs"
+                    title="Xóa sách"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
 
                 {/* Book Info */}
@@ -303,8 +332,7 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
         shelfId: editShelf || null,
       };
       await employeeService.updateInventory(req);
-      toast.success("Cập nhật bản sao thành công!");
-
+      
       // update local state to reflect changes instantly without re-fetching full book list
       setCopies((prev) =>
         prev.map((c) =>
@@ -314,8 +342,23 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
         ),
       );
       setEditingCopyId(null);
+      toast.success("Cập nhật bản sao thành công");
     } catch (error) {
       toast.error(error.response?.data?.message || "Lỗi khi cập nhật bản sao");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteCopy = async (copyId) => {
+    if (!window.confirm(`Bạn có chắc muốn xoá bản sao ${copyId} không?`)) return;
+    setIsUpdating(true);
+    try {
+      await employeeService.deleteBookCopy(copyId);
+      setCopies((prev) => prev.filter((c) => c.copyId !== copyId));
+      toast.success("Đã xoá bản sao thành công");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Lỗi khi xoá bản sao");
     } finally {
       setIsUpdating(false);
     }
@@ -436,7 +479,9 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
                                   ? "bg-emerald-100 text-emerald-700"
                                   : copy.status === "BORROWED"
                                     ? "bg-amber-100 text-amber-700"
-                                    : "bg-rose-100 text-rose-700"
+                                    : copy.status === "RESERVED"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-rose-100 text-rose-700"
                               }`}
                             >
                               {copy.status}
@@ -463,15 +508,15 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right">
                           {isEditing ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleSaveEdit(copy.copyId)}
                                 disabled={isUpdating}
                                 className="text-emerald-600 hover:text-emerald-700 font-medium text-xs px-2 py-1 bg-emerald-50 rounded"
                               >
-                                {isUpdating ? "..." : "Lưu"}
+                                Lưu
                               </button>
                               <button
                                 onClick={handleCancelEdit}
@@ -482,13 +527,23 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handleEditClick(copy)}
-                              className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition border border-transparent hover:border-sky-200"
-                              title="Cập nhật bản sao"
-                            >
-                              <Settings className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleEditClick(copy)}
+                                className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition border border-transparent hover:border-sky-200"
+                                title="Cập nhật bản sao"
+                              >
+                                <Settings className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCopy(copy.copyId)}
+                                disabled={isUpdating}
+                                className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition border border-transparent hover:border-rose-200"
+                                title="Xoá bản sao"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>

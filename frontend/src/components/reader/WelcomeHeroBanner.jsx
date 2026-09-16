@@ -40,16 +40,16 @@ const WelcomeHeroBanner = ({ profile }) => {
               <span className="text-2xl font-black text-white">
                 {profile?.currentBorrows ?? 3}
               </span>
-              <span className="text-xs text-slate-300 font-medium">
-                / {profile?.maxBorrows ?? 5} cuốn
-              </span>
+                <span className="text-xs text-slate-300 font-medium">
+                  {typeof profile?.maxBorrows === 'number' ? `/ ${profile.maxBorrows} cuốn` : ` (Hạn ngạch: ${profile?.maxBorrows})`}
+                </span>
             </div>
           </div>
 
-          {/* Stat 2: Hạn gần nhất */}
+          {/* Stat 2: Hạn thẻ thành viên */}
           <div className="flex flex-col justify-between rounded-xl bg-white/10 p-4 backdrop-blur-md border border-white/10 hover:bg-white/15 transition-all">
             <div className="flex items-center justify-between text-xs text-sky-200 font-medium">
-              <span>Hạn gần nhất</span>
+              <span>Hạn thẻ thành viên</span>
               <Calendar className="h-4 w-4 text-sky-300 opacity-80" />
             </div>
             <div className="mt-2">

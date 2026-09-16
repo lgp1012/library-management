@@ -27,4 +27,5 @@ public class DetailBorrowingSlipResponse {
     LocalDate borrowingDate;
     LocalDate expectedReturnDate;
     LocalDate actualReturnDate;
+    String renewalStatus;
 }

@@ -166,30 +166,46 @@ public class AdminService {
                 .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
     }
 
-    public FineConfigResponse updateFineConfig(FineConfigRequest request, String adminUsername) {
+    @Transactional(readOnly = true)
+    public List<FineConfigResponse> getFineConfigs() {
+        return fineConfigRepository.findAll().stream().map(this::toFineConfigResponse).toList();
+    }
+
+    public FineConfigResponse createFineConfig(FineConfigRequest request, String adminUsername) {
         return transactionTemplate.execute(status -> {
+            if (fineConfigRepository.existsByFineTypeIgnoreCase(request.getFineType())) {
+                throw new AppException(ErrorCode.FINE_CONFIG_TYPE_EXISTED);
+            }
             User admin = findUser(adminUsername);
-            FineConfig config = fineConfigRepository.findTopByOrderByUpdatedAtDesc()
-                    .orElseGet(() -> FineConfig.builder()
-                            .configId(generateFineConfigId())
-                            .build());
+            FineConfig config = FineConfig.builder()
+                    .configId(generateFineConfigId())
+                    .fineType(request.getFineType())
+                    .fineRatePerDay(request.getFineRatePerDay())
+                    .descriptionFine(request.getDescriptionFine())
+                    .configByUser(admin)
+                    .build();
+            FineConfig saved = fineConfigRepository.save(config);
+            writeLog(adminUsername, "Created fine configuration " + saved.getConfigId());
+            return toFineConfigResponse(saved);
+        });
+    }
+
+    public FineConfigResponse updateFineConfigById(String configId, FineConfigRequest request, String adminUsername) {
+        return transactionTemplate.execute(status -> {
+            FineConfig config = fineConfigRepository.findById(configId)
+                    .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
+            if (fineConfigRepository.existsByFineTypeIgnoreCaseAndConfigIdNot(request.getFineType(), configId)) {
+                throw new AppException(ErrorCode.FINE_CONFIG_TYPE_EXISTED);
+            }
+            User admin = findUser(adminUsername);
             config.setFineType(request.getFineType());
             config.setFineRatePerDay(request.getFineRatePerDay());
             config.setDescriptionFine(request.getDescriptionFine());
             config.setConfigByUser(admin);
             FineConfig saved = fineConfigRepository.save(config);
-
             writeLog(adminUsername, "Updated fine configuration " + saved.getConfigId());
             return toFineConfigResponse(saved);
         });
-    }
-
-    @Transactional
-    public void deleteFineConfig(String configId, String adminUsername) {
-        FineConfig config = fineConfigRepository.findById(configId)
-                .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
-        fineConfigRepository.delete(config);
-        writeLog(adminUsername, "Deleted fine configuration " + configId);
     }
 
     @Transactional
@@ -198,6 +214,15 @@ public class AdminService {
                 .map(existing -> updateFineConfigById(existing.getConfigId(), request, adminUsername))
                 .orElseGet(() -> createFineConfig(request, adminUsername));
     }
+    @Transactional
+    public void deleteFineConfig(String configId, String adminUsername) {
+        FineConfig config = fineConfigRepository.findById(configId)
+                .orElseThrow(() -> new AppException(ErrorCode.FINE_CONFIG_NOT_FOUND));
+        fineConfigRepository.delete(config);
+        writeLog(adminUsername, "Deleted fine configuration " + configId);
+    }
+
+
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategories() {

@@ -1,31 +1,30 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-  Users,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ChevronRight,
-  ShieldAlert,
-  ArrowLeft,
-  Calendar,
-  BookMarked,
-  DollarSign,
-  AlertCircle,
-  RefreshCcw
-} from "lucide-react";
-import employeeService from "../../services/employeeService";
-import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
+import {
+  AlertCircle,
+  ArrowLeft,
+  BookMarked,
+  Calendar,
+  CheckCircle2,
+  DollarSign,
+  RefreshCcw,
+  Search,
+  ShieldAlert,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
+import employeeService from "../../services/employeeService";
 
 dayjs.extend(isSameOrBefore);
+
+import ReaderEditModal from "./ReaderEditModal";
 
 export default function EmployeeReadersView() {
   const [readers, setReaders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReader, setSelectedReader] = useState(null);
+  const [editingReader, setEditingReader] = useState(null);
 
   const fetchReaders = async () => {
     setIsLoading(true);
@@ -34,6 +33,7 @@ export default function EmployeeReadersView() {
       setReaders(data.result || []);
     } catch (err) {
       toast.error("Không thể tải danh sách thẻ độc giả.");
+      console.error("Failed to fetch readers:", err);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +70,9 @@ export default function EmployeeReadersView() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold text-sky-950 mb-1">Quản lý Thẻ Độc giả</h2>
+          <h2 className="text-xl font-bold text-sky-950 mb-1">
+            Quản lý Thẻ Độc giả
+          </h2>
           <p className="text-sm text-slate-500">
             Kiểm tra thời hạn thẻ, số lượng sách đang mượn và nợ phạt
           </p>
@@ -121,32 +123,48 @@ export default function EmployeeReadersView() {
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-slate-400">
+                  <td
+                    colSpan="7"
+                    className="px-6 py-8 text-center text-slate-400"
+                  >
                     Đang tải dữ liệu...
                   </td>
                 </tr>
               ) : filteredReaders.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-slate-400">
+                  <td
+                    colSpan="7"
+                    className="px-6 py-8 text-center text-slate-400"
+                  >
                     Không tìm thấy độc giả nào phù hợp.
                   </td>
                 </tr>
               ) : (
                 filteredReaders.map((reader) => {
-                  const isExpired = dayjs(reader.membershipExpiry).isSameOrBefore(dayjs(), "day");
+                  const isExpired = dayjs(
+                    reader.membershipExpiry,
+                  ).isSameOrBefore(dayjs(), "day");
                   return (
-                    <tr key={reader.readerId} className="hover:bg-slate-50/50 transition">
+                    <tr
+                      key={reader.readerId}
+                      className="hover:bg-slate-50/50 transition cursor-pointer"
+                      onClick={() => setSelectedReader(reader)}
+                    >
                       <td className="px-6 py-4 font-mono font-bold text-sky-700">
                         {reader.readerId}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">{reader.readerName}</div>
+                        <div className="font-bold text-slate-800">
+                          {reader.readerName}
+                        </div>
                         <div className="text-xs text-slate-400 mt-0.5">
                           User ID: {reader.userId}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium">{reader.phoneNumber || "N/A"}</div>
+                        <div className="font-medium">
+                          {reader.phoneNumber || "N/A"}
+                        </div>
                         <div className="text-xs text-slate-400 mt-0.5">
                           {reader.email}
                         </div>
@@ -158,7 +176,9 @@ export default function EmployeeReadersView() {
                           }`}
                         >
                           {reader.membershipExpiry}
-                          {isExpired && <span className="ml-1 text-xs">(Hết hạn)</span>}
+                          {isExpired && (
+                            <span className="ml-1 text-xs">(Hết hạn)</span>
+                          )}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -180,10 +200,13 @@ export default function EmployeeReadersView() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setSelectedReader(reader)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingReader(reader);
+                            }}
                             className="px-3 py-1.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg text-xs font-semibold transition border border-sky-200/50"
                           >
-                            Hồ sơ & Sách mượn
+                            Cập nhật thông tin
                           </button>
                         </div>
                       </td>
@@ -195,6 +218,13 @@ export default function EmployeeReadersView() {
           </table>
         </div>
       </div>
+      {editingReader && (
+        <ReaderEditModal
+          reader={editingReader}
+          onClose={() => setEditingReader(null)}
+          onRefresh={fetchReaders}
+        />
+      )}
     </div>
   );
 }
@@ -219,7 +249,8 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
       ]);
       setBorrowings(borRes.result || []);
       setFines(finesRes.result || []);
-    } catch (err) {
+    } catch (error) {
+      console.error("Failed to load reader details:", error);
       toast.error("Không thể tải thông tin chi tiết.");
     } finally {
       setIsLoading(false);
@@ -247,13 +278,19 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
   const handleExtend = async () => {
     setIsProcessing(true);
     try {
-      const newExpiry = dayjs(reader.membershipExpiry).add(1, "year").format("YYYY-MM-DD");
+      const newExpiry = dayjs(reader.membershipExpiry)
+        .add(1, "year")
+        .format("YYYY-MM-DD");
       await employeeService.updateReader(reader.readerId, {
         membershipExpiry: newExpiry,
         active: true,
       });
       toast.success("Đã gia hạn thêm 1 năm!");
-      setReader((prev) => ({ ...prev, membershipExpiry: newExpiry, active: true }));
+      setReader((prev) => ({
+        ...prev,
+        membershipExpiry: newExpiry,
+        active: true,
+      }));
     } catch (err) {
       toast.error(err.response?.data?.message || "Lỗi gia hạn thẻ");
     } finally {
@@ -261,9 +298,12 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
     }
   };
 
-  const isExpired = dayjs(reader.membershipExpiry).isSameOrBefore(dayjs(), "day");
+  const isExpired = dayjs(reader.membershipExpiry).isSameOrBefore(
+    dayjs(),
+    "day",
+  );
   const daysDiff = dayjs(reader.membershipExpiry).diff(dayjs(), "day");
-  
+
   const currentBorrowings = borrowings.filter((b) => !b.actualReturnDate);
   const historyBorrowings = borrowings.filter((b) => b.actualReturnDate);
   const unpaidFinesTotal = fines
@@ -289,7 +329,9 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-slate-900">{reader.readerName}</h2>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {reader.readerName}
+                </h2>
                 <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-md font-mono">
                   {reader.readerId}
                 </span>
@@ -333,11 +375,16 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <div className="flex justify-between items-start mb-2">
-                <span className="text-sm font-semibold text-slate-500">Số sách đang mượn</span>
+                <span className="text-sm font-semibold text-slate-500">
+                  Số sách đang mượn
+                </span>
                 <BookMarked className="h-5 w-5 text-sky-500" />
               </div>
               <div className="text-2xl font-bold text-slate-900 mb-3">
-                {currentBorrowings.length} <span className="text-sm font-normal text-slate-500">/ 5 cuốn tối đa</span>
+                {currentBorrowings.length}{" "}
+                <span className="text-sm font-normal text-slate-500">
+                  / 5 cuốn tối đa
+                </span>
               </div>
               <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                 <div
@@ -349,7 +396,9 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
 
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <div className="flex justify-between items-start mb-2">
-                <span className="text-sm font-semibold text-slate-500">Hạn thẻ độc giả</span>
+                <span className="text-sm font-semibold text-slate-500">
+                  Hạn thẻ độc giả
+                </span>
                 <Calendar className="h-5 w-5 text-indigo-500" />
               </div>
               <div className="text-2xl font-bold text-slate-900 mb-1">
@@ -362,11 +411,13 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
               >
                 {isExpired ? (
                   <>
-                    <AlertCircle className="h-4 w-4" /> Đã quá hạn {Math.abs(daysDiff)} ngày
+                    <AlertCircle className="h-4 w-4" /> Đã quá hạn{" "}
+                    {Math.abs(daysDiff)} ngày
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="h-4 w-4" /> Còn {daysDiff} ngày hiệu lực
+                    <CheckCircle2 className="h-4 w-4" /> Còn {daysDiff} ngày
+                    hiệu lực
                   </>
                 )}
               </div>
@@ -374,7 +425,9 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
 
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <div className="flex justify-between items-start mb-2">
-                <span className="text-sm font-semibold text-slate-500">Tiền phạt chưa thanh toán</span>
+                <span className="text-sm font-semibold text-slate-500">
+                  Tiền phạt chưa thanh toán
+                </span>
                 <DollarSign className="h-5 w-5 text-amber-500" />
               </div>
               <div className="text-2xl font-bold text-slate-900 mb-1">
@@ -436,23 +489,34 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
 
           <div className="min-h-[300px]">
             {isLoading ? (
-              <div className="flex justify-center items-center h-40 text-slate-400">Đang tải...</div>
+              <div className="flex justify-center items-center h-40 text-slate-400">
+                Đang tải...
+              </div>
             ) : (
               <>
                 {/* SÁCH ĐANG MƯỢN */}
                 {activeTab === "borrowed" && (
                   <div className="space-y-4">
                     {currentBorrowings.length === 0 ? (
-                      <p className="text-center text-slate-400 py-10">Độc giả không có sách đang mượn.</p>
+                      <p className="text-center text-slate-400 py-10">
+                        Độc giả không có sách đang mượn.
+                      </p>
                     ) : (
                       currentBorrowings.map((b) => {
-                        const isOverdue = dayjs().isAfter(dayjs(b.expectedReturnDate), "day");
-                        const overdueDays = isOverdue ? dayjs().diff(dayjs(b.expectedReturnDate), "day") : 0;
+                        const isOverdue = dayjs().isAfter(
+                          dayjs(b.expectedReturnDate),
+                          "day",
+                        );
+                        const overdueDays = isOverdue
+                          ? dayjs().diff(dayjs(b.expectedReturnDate), "day")
+                          : 0;
                         return (
                           <div
                             key={b.detailId}
                             className={`p-5 rounded-2xl border ${
-                              isOverdue ? "border-rose-200 bg-rose-50/30" : "border-slate-200 bg-white"
+                              isOverdue
+                                ? "border-rose-200 bg-rose-50/30"
+                                : "border-slate-200 bg-white"
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -466,14 +530,25 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                                   </span>
                                   {isOverdue && (
                                     <span className="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-[10px] rounded-md flex items-center gap-1">
-                                      <AlertCircle className="h-3 w-3" /> Quá hạn {overdueDays} ngày
+                                      <AlertCircle className="h-3 w-3" /> Quá
+                                      hạn {overdueDays} ngày
                                     </span>
                                   )}
                                 </div>
-                                <h4 className="font-bold text-lg text-slate-800 mb-1">{b.bookName}</h4>
+                                <h4 className="font-bold text-lg text-slate-800 mb-1">
+                                  {b.bookName}
+                                </h4>
                                 <div className="text-sm text-slate-600">
-                                  Ngày mượn: <span className="font-semibold">{b.borrowingDate || "N/A"}</span> •{" "}
-                                  Hạn trả: <span className={`font-semibold ${isOverdue ? "text-rose-600" : ""}`}>{b.expectedReturnDate}</span>
+                                  Ngày mượn:{" "}
+                                  <span className="font-semibold">
+                                    {b.borrowingDate || "N/A"}
+                                  </span>{" "}
+                                  • Hạn trả:{" "}
+                                  <span
+                                    className={`font-semibold ${isOverdue ? "text-rose-600" : ""}`}
+                                  >
+                                    {b.expectedReturnDate}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -481,7 +556,8 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                                   Gia hạn (+14d)
                                 </button>
                                 <button className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition flex items-center gap-2 shadow-md shadow-emerald-500/20">
-                                  <CheckCircle2 className="h-4 w-4" /> Nhận trả sách
+                                  <CheckCircle2 className="h-4 w-4" /> Nhận trả
+                                  sách
                                 </button>
                               </div>
                             </div>
@@ -500,24 +576,42 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                         <tr>
                           <th className="px-4 py-3 font-semibold">Tên sách</th>
                           <th className="px-4 py-3 font-semibold">Ngày mượn</th>
-                          <th className="px-4 py-3 font-semibold">Ngày trả thực tế</th>
-                          <th className="px-4 py-3 font-semibold">Phiếu mượn</th>
+                          <th className="px-4 py-3 font-semibold">
+                            Ngày trả thực tế
+                          </th>
+                          <th className="px-4 py-3 font-semibold">
+                            Phiếu mượn
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {historyBorrowings.length === 0 ? (
                           <tr>
-                            <td colSpan="4" className="px-4 py-8 text-center text-slate-400">
+                            <td
+                              colSpan="4"
+                              className="px-4 py-8 text-center text-slate-400"
+                            >
                               Chưa có lịch sử trả sách.
                             </td>
                           </tr>
                         ) : (
                           historyBorrowings.map((b) => (
-                            <tr key={b.detailId} className="hover:bg-slate-50/50">
-                              <td className="px-4 py-3 font-bold text-slate-700">{b.bookName}</td>
-                              <td className="px-4 py-3">{b.borrowingDate || "N/A"}</td>
-                              <td className="px-4 py-3 font-medium text-emerald-600">{b.actualReturnDate}</td>
-                              <td className="px-4 py-3 font-mono text-xs">{b.borrowingId}</td>
+                            <tr
+                              key={b.detailId}
+                              className="hover:bg-slate-50/50"
+                            >
+                              <td className="px-4 py-3 font-bold text-slate-700">
+                                {b.bookName}
+                              </td>
+                              <td className="px-4 py-3">
+                                {b.borrowingDate || "N/A"}
+                              </td>
+                              <td className="px-4 py-3 font-medium text-emerald-600">
+                                {b.actualReturnDate}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs">
+                                {b.borrowingId}
+                              </td>
                             </tr>
                           ))
                         )}
@@ -532,33 +626,48 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
                     <table className="w-full text-left text-sm text-slate-600">
                       <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Mã biên lai</th>
+                          <th className="px-4 py-3 font-semibold">
+                            Mã biên lai
+                          </th>
                           <th className="px-4 py-3 font-semibold">Lý do</th>
                           <th className="px-4 py-3 font-semibold">Số tiền</th>
-                          <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                          <th className="px-4 py-3 font-semibold text-right">Thao tác</th>
+                          <th className="px-4 py-3 font-semibold">
+                            Trạng thái
+                          </th>
+                          <th className="px-4 py-3 font-semibold text-right">
+                            Thao tác
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {fines.length === 0 ? (
                           <tr>
-                            <td colSpan="5" className="px-4 py-8 text-center text-slate-400">
+                            <td
+                              colSpan="5"
+                              className="px-4 py-8 text-center text-slate-400"
+                            >
                               Không có biên lai phạt nào.
                             </td>
                           </tr>
                         ) : (
                           fines.map((f) => (
                             <tr key={f.fineId} className="hover:bg-slate-50/50">
-                              <td className="px-4 py-3 font-mono font-bold text-slate-700">{f.fineId}</td>
+                              <td className="px-4 py-3 font-mono font-bold text-slate-700">
+                                {f.fineId}
+                              </td>
                               <td className="px-4 py-3">{f.reason}</td>
                               <td className="px-4 py-3 font-bold text-rose-600">
                                 {f.finePrice.toLocaleString("vi-VN")} đ
                               </td>
                               <td className="px-4 py-3">
                                 {f.paidStatus ? (
-                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">Đã thanh toán</span>
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
+                                    Đã thanh toán
+                                  </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">Chưa thanh toán</span>
+                                  <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">
+                                    Chưa thanh toán
+                                  </span>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-right">

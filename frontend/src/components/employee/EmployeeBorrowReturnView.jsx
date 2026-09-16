@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { 
   Search, Clock, ChevronRight, CheckCircle2, AlertCircle, Plus, 
   RotateCcw, ShieldAlert, ArrowLeft, BookOpen, UserCircle2, BookUp, DollarSign
@@ -188,34 +188,39 @@ const BorrowBooksFlow = ({ onFinish }) => {
   const [readers, setReaders] = useState([]);
   const [books, setBooks] = useState([]);
   const [selectedReaderId, setSelectedReaderId] = useState("");
+  const [readerSearchTerm, setReaderSearchTerm] = useState("");
+  const [isReaderDropdownOpen, setIsReaderDropdownOpen] = useState(false);
   const [searchBookTerm, setSearchBookTerm] = useState("");
   const [selectedBook, setSelectedBook] = useState(null);
   
   const [selectedCopies, setSelectedCopies] = useState([]);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
 
   useEffect(() => {
     employeeService.listReaders().then(res => setReaders(res.result || []));
     employeeService.listBooks().then(res => setBooks(res.result || []));
   }, []);
 
-  const handleAddCopy = (copy) => {
-    if (selectedCopies.length >= 5) {
-      toast.warning("Chỉ được mượn tối đa 5 cuốn mỗi lượt.");
-      return;
+  const handleToggleCopy = (copy) => {
+    if (selectedCopies.length > 0 && selectedCopies[0].copyId === copy.copyId) {
+      setSelectedCopies([]); // Deselect if already selected
+    } else {
+      setSelectedCopies([{ ...copy, bookName: selectedBook.bookName }]); // Select only this one
     }
-    if (selectedCopies.find(c => c.copyId === copy.copyId)) return;
-    setSelectedCopies([...selectedCopies, { ...copy, bookName: selectedBook.bookName }]);
-  };
-
-  const handleRemoveCopy = (copyId) => {
-    setSelectedCopies(selectedCopies.filter(c => c.copyId !== copyId));
   };
 
   const handleSubmit = async () => {
-    if (!selectedReaderId) return toast.warning("Vui lòng chọn độc giả.");
-    if (selectedCopies.length === 0) return toast.warning("Vui lòng chọn ít nhất 1 bản sao.");
+    setFormError(null);
+    if (!selectedReaderId) {
+      setFormError("Vui lòng chọn độc giả.");
+      return;
+    }
+    if (selectedCopies.length === 0) {
+      setFormError("Vui lòng chọn ít nhất 1 bản sao.");
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -227,14 +232,16 @@ const BorrowBooksFlow = ({ onFinish }) => {
       toast.success("Đã lập phiếu mượn thành công!");
       onFinish();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Lỗi khi lập phiếu mượn.");
+      setFormError(err.response?.data?.message || "Lỗi khi lập phiếu mượn.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredBooks = books.filter(b => b.bookName.toLowerCase().includes(searchBookTerm.toLowerCase()));
-
+  const filteredBooks = books.filter(b => 
+    b.bookName.toLowerCase().includes(searchBookTerm.toLowerCase()) && 
+    (b.copies?.filter(c => c.status === "AVAILABLE").length > 0)
+  );
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-right-8">
       {/* Left Column: Form Setup */}
@@ -245,20 +252,42 @@ const BorrowBooksFlow = ({ onFinish }) => {
             Thông tin người mượn
           </h3>
           <div className="space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Chọn độc giả *</label>
-              <select
-                value={selectedReaderId}
-                onChange={(e) => setSelectedReaderId(e.target.value)}
+              <input
+                type="text"
+                placeholder="Nhập tên hoặc mã RD..."
+                value={readerSearchTerm}
+                onChange={(e) => {
+                  setReaderSearchTerm(e.target.value);
+                  setIsReaderDropdownOpen(true);
+                  setSelectedReaderId(""); // reset when typing
+                }}
+                onFocus={() => setIsReaderDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setIsReaderDropdownOpen(false), 200)}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 font-medium"
-              >
-                <option value="">-- Chọn Độc giả (Tên - Mã RD) --</option>
-                {readers.map(r => (
-                  <option key={r.readerId} value={r.readerId} disabled={!r.active}>
-                    {r.readerName} ({r.readerId}) {!r.active ? "- Bị khóa" : ""}
-                  </option>
-                ))}
-              </select>
+              />
+              {isReaderDropdownOpen && readerSearchTerm && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 shadow-lg rounded-xl max-h-60 overflow-y-auto">
+                  {readers
+                    .filter(r => r.readerName.toLowerCase().includes(readerSearchTerm.toLowerCase()) || r.readerId.toLowerCase().includes(readerSearchTerm.toLowerCase()))
+                    .map(r => (
+                      <div 
+                        key={r.readerId}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); 
+                          setSelectedReaderId(r.readerId);
+                          setReaderSearchTerm(`${r.readerName} (${r.readerId})`);
+                          setIsReaderDropdownOpen(false);
+                        }}
+                        className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-b last:border-b-0 border-slate-100 ${!r.active ? "opacity-50" : ""}`}
+                      >
+                        <div className="font-bold text-sm text-slate-800">{r.readerName}</div>
+                        <div className="text-xs text-slate-500">{r.readerId} {!r.active ? "- Bị khóa" : ""}</div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Ghi chú phiếu mượn</label>
@@ -276,6 +305,7 @@ const BorrowBooksFlow = ({ onFinish }) => {
             <div className="font-bold text-slate-700 mb-2">Quy định mượn:</div>
             <ul className="text-slate-500 space-y-1 list-disc pl-4 text-xs">
               <li>Thời hạn tiêu chuẩn: 14 ngày.</li>
+              <li>Thao tác: Mỗi phiếu chỉ mượn 1 cuốn.</li>
               <li>Hạn ngạch: Tối đa 5 cuốn / độc giả.</li>
               <li>Sách trả trễ hạn sẽ áp dụng đơn giá phạt mặc định.</li>
             </ul>
@@ -284,20 +314,11 @@ const BorrowBooksFlow = ({ onFinish }) => {
       </div>
 
       {/* Right Column: Book Selection & Cart */}
-      <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full min-h-[500px]">
-          <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="bg-emerald-100 text-emerald-700 w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span> 
-              Thêm bản sao sách ({selectedCopies.length})
-            </div>
-            <button 
-              onClick={handleSubmit}
-              disabled={isSubmitting || selectedCopies.length === 0}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition shadow-md shadow-emerald-600/20"
-            >
-              Xác nhận lập phiếu ({selectedCopies.length} cuốn)
-            </button>
+      <div className="lg:col-span-2 space-y-6 flex flex-col h-full min-h-[500px]">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+          <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <span className="bg-emerald-100 text-emerald-700 w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span> 
+            Thêm bản sao sách ({selectedCopies.length})
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 min-h-0">
@@ -318,75 +339,79 @@ const BorrowBooksFlow = ({ onFinish }) => {
                   <div 
                     key={b.bookId} 
                     onClick={() => setSelectedBook(b)}
-                    className={`p-3 rounded-xl border cursor-pointer transition ${
-                      selectedBook?.bookId === b.bookId ? "bg-sky-50 border-sky-200 ring-1 ring-sky-500/30" : "bg-white border-slate-100 hover:border-sky-200"
-                    }`}
+                    className={`p-3 rounded-xl border cursor-pointer transition ${selectedBook?.bookId === b.bookId ? "bg-sky-50 border-sky-200 ring-1 ring-sky-500/30" : "bg-white border-slate-100 hover:border-sky-200"}`}
                   >
                     <div className="font-bold text-slate-800 text-sm mb-1">{b.bookName}</div>
                     <div className="text-xs text-slate-500 flex justify-between">
                       <span>Mã: {b.bookId}</span>
-                      <span className="text-sky-600 font-semibold">{b.copies?.filter(c => c.status === "Available").length || 0} bản rảnh</span>
+                      <span className="text-sky-600 font-semibold">{b.copies?.filter(c => c.status === "AVAILABLE").length || 0} bản rảnh</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Copies Selection & Cart */}
-            <div className="flex flex-col min-h-0">
-              {/* Available Copies */}
-              <div className="mb-6">
+            {/* Copies Selection */}
+            <div className="flex flex-col min-h-0 h-full overflow-y-auto custom-scrollbar pr-2">
+              <div className="mb-6 flex-1">
                 <h4 className="text-sm font-bold text-slate-700 mb-3">
                   {selectedBook ? `Bản sao rảnh của "${selectedBook.bookName}"` : "Chọn 1 tựa sách bên trái"}
                 </h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {selectedBook ? (
-                    selectedBook.copies?.filter(c => c.status === "Available").length > 0 ? (
-                      selectedBook.copies.filter(c => c.status === "Available").map(copy => (
-                        <button
-                          key={copy.copyId}
-                          onClick={() => handleAddCopy(copy)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 border hover:border-emerald-200 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1"
-                        >
-                          <Plus className="h-3 w-3" /> {copy.copyId}
-                        </button>
-                      ))
+                    selectedBook.copies?.filter(c => c.status === "AVAILABLE").length > 0 ? (
+                      selectedBook.copies.filter(c => c.status === "AVAILABLE").map(copy => {
+                        const isSelected = selectedCopies.length > 0 && selectedCopies[0].copyId === copy.copyId;
+                        return (
+                          <div
+                            key={copy.copyId}
+                            onClick={() => handleToggleCopy(copy)}
+                            className={`p-4 rounded-xl border-2 cursor-pointer transition flex flex-col gap-1 items-center justify-center text-center ${
+                              isSelected 
+                                ? "border-emerald-500 bg-emerald-50 shadow-sm" 
+                                : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/50"
+                            }`}
+                          >
+                            <div className={`text-sm font-mono font-bold ${isSelected ? "text-emerald-700" : "text-slate-700"}`}>
+                              {copy.copyId}
+                            </div>
+                            <div className={`text-[10px] uppercase font-bold ${isSelected ? "text-emerald-600" : "text-slate-400"}`}>
+                              {isSelected ? "Đã chọn" : "Nhấn để chọn"}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
-                      <div className="text-sm text-rose-500 italic">Không còn bản sao rảnh.</div>
+                      <div className="col-span-2 flex flex-col items-center justify-center py-10 text-slate-400 opacity-50 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
+                        <BookUp className="h-10 w-10 mb-2 text-slate-300" />
+                        <span className="text-sm">Không còn bản sao rảnh.</span>
+                      </div>
                     )
                   ) : null}
                 </div>
               </div>
-
-              {/* Cart */}
-              <div className="flex-1 bg-slate-50 rounded-xl border border-slate-200 p-4 flex flex-col min-h-0">
-                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">Đã chọn ({selectedCopies.length}/5)</h4>
-                {selectedCopies.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 opacity-50">
-                    <BookUp className="h-12 w-12 mb-2" />
-                    <p className="text-sm">Chưa có bản sao nào.</p>
-                  </div>
-                ) : (
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                    {selectedCopies.map(c => (
-                      <div key={c.copyId} className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
-                        <div>
-                          <div className="text-xs font-bold font-mono text-sky-700 mb-0.5">{c.copyId}</div>
-                          <div className="text-sm font-medium text-slate-800 line-clamp-1">{c.bookName}</div>
-                        </div>
-                        <button 
-                          onClick={() => handleRemoveCopy(c.copyId)}
-                          className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-md transition"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
+
+          {/* Submit Error and Button */}
+          <div className="mt-6 pt-6 border-t border-slate-200 flex flex-col items-end gap-3">
+            {formError && (
+              <div className="w-full bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <div className="text-sm font-medium leading-relaxed">
+                  {formError}
+                </div>
+              </div>
+            )}
+            <button 
+              onClick={handleSubmit}
+              disabled={isSubmitting || selectedCopies.length === 0 || !selectedReaderId}
+              className="w-full md:w-auto px-8 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 className="h-4 w-4" /> Xác nhận lập phiếu ({selectedCopies.length} cuốn)
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -401,17 +426,37 @@ const ReturnBooksFlow = ({ onFinish }) => {
   const [selectedReaderId, setSelectedReaderId] = useState("");
   const [borrowings, setBorrowings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [fineConfigs, setFineConfigs] = useState({
+    OVERDUE: { fineRatePerDay: 5000 },
+    DAMAGED: { fineRatePerDay: 50000 },
+    LOST: { fineRatePerDay: 30000 },
+    OTHER: { fineRatePerDay: 20000 }
+  });
   
   const [selectedToReturn, setSelectedToReturn] = useState({}); // { detailId: "NORMAL" | "DAMAGED" | "LOST" }
+  const [returnParams, setReturnParams] = useState({}); // { detailId: { price: "", percentage: 100 } }
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     employeeService.listReaders().then(res => setReaders(res.result || []));
+    employeeService.getFineConfigs().then(res => {
+      const list = res.result || [];
+      if (list.length > 0) {
+        const map = {};
+        list.forEach(cfg => {
+          if (cfg.fineType) {
+            map[cfg.fineType.toUpperCase()] = cfg;
+          }
+        });
+        setFineConfigs(prev => ({ ...prev, ...map }));
+      }
+    }).catch(err => console.error("Could not fetch fine config", err));
   }, []);
 
   const handleReaderChange = async (readerId) => {
     setSelectedReaderId(readerId);
     setSelectedToReturn({});
+    setReturnParams({});
     if (!readerId) {
       setBorrowings([]);
       return;
@@ -438,20 +483,67 @@ const ReturnBooksFlow = ({ onFinish }) => {
       }
       return next;
     });
+    
+    // Initialize default params if damaged or lost
+    if (condition === "DAMAGED" || condition === "LOST") {
+      setReturnParams(prev => {
+        if (!prev[detailId]) {
+          return { ...prev, [detailId]: { price: "", percentage: 100 } };
+        }
+        return prev;
+      });
+    }
+  };
+
+  const handleParamChange = (detailId, field, value) => {
+    setReturnParams(prev => ({
+      ...prev,
+      [detailId]: {
+        ...(prev[detailId] || { price: "", percentage: 100 }),
+        [field]: value
+      }
+    }));
   };
 
   const handleConfirmReturns = async () => {
     const detailIds = Object.keys(selectedToReturn);
     if (detailIds.length === 0) return;
     
+    // Validation
+    for (const detailId of detailIds) {
+      const condition = selectedToReturn[detailId];
+      if (condition === "LOST") {
+        const params = returnParams[detailId];
+        if (!params || !params.price || isNaN(params.price) || Number(params.price) <= 0) {
+          toast.error("Vui lòng nhập giá bìa sách hợp lệ cho sách bị mất.");
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     let successCount = 0;
     try {
       for (const detailId of detailIds) {
-        const condition = selectedToReturn[detailId];
+        let condition = selectedToReturn[detailId];
+        let finePrice = undefined;
+        
+        if (condition === "LOST") {
+           finePrice = Number(returnParams[detailId].price);
+        } else if (condition === "DAMAGED") {
+           const damagedBaseRate = fineConfigs['DAMAGED']?.fineRatePerDay ?? 50000;
+           finePrice = damagedBaseRate * (Number(returnParams[detailId]?.percentage || 100) / 100);
+        }
+
+        if (condition === "NORMAL") condition = "AVAILABLE";
+        
+        const borrowing = borrowings.find(b => b.detailId === detailId);
+        if (!borrowing) continue;
+
         await employeeService.returnBook({
-          detailId,
-          returnCondition: condition
+          copyId: borrowing.copyId,
+          condition: condition,
+          finePrice: finePrice
         });
         successCount++;
       }
@@ -546,7 +638,7 @@ const ReturnBooksFlow = ({ onFinish }) => {
                       {isOverdue && (
                         <div className="text-right">
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 bg-rose-100 text-rose-700 rounded-md">
-                            <AlertCircle className="h-3 w-3" /> Trễ {overdueDays} ngày (Sẽ phạt {overdueDays * 5}K)
+                            <AlertCircle className="h-3 w-3" /> Trễ {overdueDays} ngày (Phạt {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(overdueDays * (fineConfigs['OVERDUE']?.fineRatePerDay ?? 5000))})
                           </span>
                         </div>
                       )}
@@ -569,7 +661,7 @@ const ReturnBooksFlow = ({ onFinish }) => {
                             selectedCondition === "DAMAGED" ? "bg-amber-100 border-amber-500 text-amber-800" : "bg-white border-slate-200 text-slate-600 hover:border-amber-300"
                           }`}
                         >
-                          Hư hỏng (+Phạt)
+                          Hư hỏng
                         </button>
                         <button
                           onClick={() => handleSelectReturn(b.detailId, "LOST")}
@@ -577,9 +669,65 @@ const ReturnBooksFlow = ({ onFinish }) => {
                             selectedCondition === "LOST" ? "bg-rose-100 border-rose-500 text-rose-800" : "bg-white border-slate-200 text-slate-600 hover:border-rose-300"
                           }`}
                         >
-                          Làm mất (+Phạt)
+                          Làm mất
                         </button>
                       </div>
+                      
+                      {(selectedCondition === "DAMAGED" || selectedCondition === "LOST") && (
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="flex flex-col gap-3 mb-3">
+                            {selectedCondition === "LOST" && (
+                              <div>
+                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Giá bìa sách (VNĐ):</label>
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  className="w-full text-sm p-2 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  value={returnParams[b.detailId]?.price || ""}
+                                  onChange={(e) => handleParamChange(b.detailId, "price", e.target.value)}
+                                  placeholder="Nhập giá bìa..."
+                                />
+                              </div>
+                            )}
+                            
+                            {selectedCondition === "DAMAGED" && (
+                              <div>
+                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Mức phạt (%):</label>
+                                <div className="flex gap-2">
+                                  {[25, 50, 75, 100].map(pct => (
+                                    <button
+                                      key={pct}
+                                      onClick={() => handleParamChange(b.detailId, "percentage", pct)}
+                                      className={`flex-1 py-1 text-xs font-bold rounded border transition ${
+                                        returnParams[b.detailId]?.percentage === pct
+                                          ? "bg-amber-500 text-white border-amber-600"
+                                          : "bg-white text-slate-600 border-slate-300 hover:bg-amber-100"
+                                      }`}
+                                    >
+                                      {pct}%
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-amber-800 text-sm font-bold border-t border-amber-200/60 pt-2">
+                            <DollarSign className="h-4 w-4 text-amber-600" />
+                            Phát sinh vé phạt: {
+                              selectedCondition === "LOST"
+                                ? (returnParams[b.detailId]?.price
+                                    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(returnParams[b.detailId].price))
+                                    : "0 đ")
+                                : (selectedCondition === "DAMAGED"
+                                    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                        (fineConfigs['DAMAGED']?.fineRatePerDay ?? 50000) * (Number(returnParams[b.detailId]?.percentage || 100) / 100)
+                                      )
+                                    : "0 đ")
+                            }
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

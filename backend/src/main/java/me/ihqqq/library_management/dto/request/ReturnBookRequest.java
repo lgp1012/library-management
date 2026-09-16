@@ -24,4 +24,6 @@ public class ReturnBookRequest {
     String condition = "Available";
 
     String notes;
+
+    java.math.BigDecimal finePrice;
 }

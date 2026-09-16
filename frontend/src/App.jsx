@@ -1,11 +1,9 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import ProtectedRoute from "./components/auth/ProtectedRoute.jsx";
+import { ReaderProvider } from "./contexts/readerContext.jsx";
 import AdminPage from "./pages/admin/AdminPage.jsx";
 import EmployeePage from "./pages/employee/EmployeePage.jsx";
-import BorrowedBooksPage from "./pages/reader/BorrowedBooksPage.jsx";
-import HistoryPage from "./pages/reader/HistoryPage.jsx";
-import ReaderDashboard from "./pages/reader/ReaderDashboard.jsx";
-import ReservationPage from "./pages/reader/ReservationPage.jsx";
+import ReaderPage from "./pages/reader/ReaderPage.jsx";
 import SigninPage from "./pages/SigninPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 
@@ -37,18 +35,20 @@ function App() {
 
       {/* Reader Routes */}
       {isDevPreview ? (
-        <>
-          <Route path="/reader/dashboard" element={<ReaderDashboard />} />
-          <Route path="/reader/borrowed" element={<BorrowedBooksPage />} />
-          <Route path="/reader/reservations" element={<ReservationPage />} />
-          <Route path="/reader/history" element={<HistoryPage />} />
-        </>
+        <Route element={<><ReaderProvider><Outlet /></ReaderProvider></>}>
+          <Route path="/reader/dashboard" element={<ReaderPage />} />
+          <Route path="/reader/borrowed" element={<Navigate to="/reader/dashboard" />} />
+          <Route path="/reader/reservations" element={<Navigate to="/reader/dashboard" />} />
+          <Route path="/reader/history" element={<Navigate to="/reader/dashboard" />} />
+        </Route>
       ) : (
         <Route element={<ProtectedRoute allowedRoles={["READER"]} />}>
-          <Route path="/reader/dashboard" element={<ReaderDashboard />} />
-          <Route path="/reader/borrowed" element={<BorrowedBooksPage />} />
-          <Route path="/reader/reservations" element={<ReservationPage />} />
-          <Route path="/reader/history" element={<HistoryPage />} />
+          <Route element={<><ReaderProvider><Outlet /></ReaderProvider></>}>
+            <Route path="/reader/dashboard" element={<ReaderPage />} />
+            <Route path="/reader/borrowed" element={<Navigate to="/reader/dashboard" />} />
+            <Route path="/reader/reservations" element={<Navigate to="/reader/dashboard" />} />
+            <Route path="/reader/history" element={<Navigate to="/reader/dashboard" />} />
+          </Route>
         </Route>
       )}
 

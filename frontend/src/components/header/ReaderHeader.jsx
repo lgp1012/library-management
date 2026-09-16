@@ -1,47 +1,17 @@
 import { Bell, Check, LibraryBig, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import Signout from "../auth/Signout";
 
 const ReaderHeader = ({
-  activeTab: activeTabProp,
+  activeTab,
   onTabChange,
   readerInfo,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
-  // Determine active tab based on path if prop is not explicit
-  const getCurrentTab = () => {
-    if (activeTabProp) return activeTabProp;
-    const path = location.pathname;
-    if (path.includes("/reader/borrowed")) return "borrows";
-    if (path.includes("/reader/reservations")) return "reservations";
-    if (path.includes("/reader/history")) return "history";
-    return "explore";
-  };
-
-  const activeTab = getCurrentTab();
-
   const handleTabClick = (tabId) => {
     if (onTabChange) onTabChange(tabId);
-    switch (tabId) {
-      case "borrows":
-        navigate("/reader/borrowed");
-        break;
-      case "reservations":
-        navigate("/reader/reservations");
-        break;
-      case "history":
-        navigate("/reader/history");
-        break;
-      case "explore":
-      default:
-        navigate("/reader/dashboard");
-        break;
-    }
   };
 
   // Notification items state
@@ -78,7 +48,6 @@ const ReaderHeader = ({
     { id: "explore", label: "Tra cứu & Khám phá" },
     { id: "borrows", label: "Sách đang mượn" },
     { id: "reservations", label: "Đặt trước & Yêu cầu" },
-    { id: "history", label: "Lịch sử & Phạt" },
   ];
 
   return (
@@ -222,14 +191,22 @@ const ReaderHeader = ({
               }}
               className="flex items-center gap-2.5 rounded-full p-1 hover:bg-sky-900 transition-colors focus:outline-none"
             >
-              <img
-                src={
-                  readerInfo?.avatarUrl ||
-                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                }
-                alt="Avatar"
-                className="h-9 w-9 rounded-full object-cover border-2 border-sky-400/50 shadow-xs"
-              />
+              <div className="relative">
+                <img
+                  src={
+                    readerInfo?.avatarUrl ||
+                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+                  }
+                  alt="Avatar"
+                  className="h-9 w-9 rounded-full object-cover border-2 border-sky-400/50 shadow-xs"
+                />
+                {readerInfo?.hasUnpaidFine && (
+                  <span className="absolute top-0 right-0 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-sky-950"></span>
+                  </span>
+                )}
+              </div>
               <div className="text-left hidden sm:block">
                 <div className="text-xs font-bold text-white leading-tight">
                   {readerInfo?.name || "Lê Hoàng Nam"}
@@ -257,6 +234,15 @@ const ReaderHeader = ({
                   </span>
                 </div>
                 <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleTabClick("profile");
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-sky-600 rounded-lg transition-colors"
+                  >
+                    Thông tin cá nhân
+                  </button>
                   <Signout />
                 </div>
               </div>
@@ -269,3 +255,5 @@ const ReaderHeader = ({
 };
 
 export default ReaderHeader;
+
+

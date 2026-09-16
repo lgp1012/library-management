@@ -10,5 +10,7 @@ public interface ReservationMapper {
 
     @Mapping(target = "bookId", source = "book.bookId")
     @Mapping(target = "bookName", source = "book.bookName")
+    @Mapping(target = "readerId", source = "reader.readerId")
+    @Mapping(target = "readerName", source = "reader.readerName")
     ReservationResponse toReservationResponse(Reservation reservation);
 }

@@ -5,7 +5,6 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
-import { FILTER_OPTIONS } from "../../constants/readerMockData";
 
 const SearchFilterBar = ({
   searchTerm,
@@ -20,6 +19,7 @@ const SearchFilterBar = ({
   setAvailableOnly,
   onResetFilters,
   resultCount = 48,
+  filterOptions = { majors: [], authors: [], publishYears: [] }
 }) => {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs space-y-4">
@@ -66,7 +66,7 @@ const SearchFilterBar = ({
               onChange={(e) => setSelectedMajor(e.target.value)}
               className="appearance-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 pr-8 text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
             >
-              {FILTER_OPTIONS.majors.map((m) => (
+              {filterOptions.majors.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -82,7 +82,7 @@ const SearchFilterBar = ({
               onChange={(e) => setSelectedAuthor(e.target.value)}
               className="appearance-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 pr-8 text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
             >
-              {FILTER_OPTIONS.authors.map((a) => (
+              {filterOptions.authors.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -98,7 +98,7 @@ const SearchFilterBar = ({
               onChange={(e) => setSelectedYear(e.target.value)}
               className="appearance-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 pr-8 text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
             >
-              {FILTER_OPTIONS.publishYears.map((y) => (
+              {filterOptions.publishYears.map((y) => (
                 <option key={y} value={y}>
                   {y}
                 </option>

@@ -44,8 +44,8 @@ public enum ErrorCode {
 
     DETAIL_BORROWING_NOT_FOUND(1601, "Borrowing detail not found", HttpStatus.NOT_FOUND),
     BORROWING_NOT_OWNED(1602, "This borrowing record does not belong to you", HttpStatus.FORBIDDEN),
-    BOOK_ALREADY_RETURNED(1603, "This book has already been returned, cannot renew", HttpStatus.BAD_REQUEST),
-    BOOK_RESERVED_BY_OTHERS(1604, "Cannot renew: another reader is waiting for this book", HttpStatus.BAD_REQUEST),
+    BOOK_ALREADY_RETURNED(1603, "Sách đã được trả, không thể gia hạn.", HttpStatus.BAD_REQUEST),
+    BOOK_RESERVED_BY_OTHERS(1604, "Không thể gia hạn: Có độc giả khác đang đặt trước tựa sách này.", HttpStatus.BAD_REQUEST),
     BORROWING_CONFIG_NOT_FOUND(1605, "Borrowing configuration has not been set up", HttpStatus.NOT_FOUND),
 
     EMPLOYEE_NOT_FOUND(1701, "Employee not found", HttpStatus.NOT_FOUND),
@@ -99,6 +99,7 @@ public enum ErrorCode {
     COPY_ID_REQUIRED(1765, "Copy id is required", HttpStatus.BAD_REQUEST),
     COPY_ID_TOO_LONG(1766, "Copy id must not exceed 10 characters", HttpStatus.BAD_REQUEST),
     COPY_ID_EXISTED(1767, "Copy id already exists", HttpStatus.BAD_REQUEST),
+    COPY_HAS_BORROWING_HISTORY(1790, "Cannot delete a book copy that is currently being borrowed", HttpStatus.BAD_REQUEST),
     COPY_NOT_FOUND(1768, "Book copy not found", HttpStatus.NOT_FOUND),
     INVALID_COPY_STATUS(1769, "Invalid book copy status", HttpStatus.BAD_REQUEST),
     READER_ID_REQUIRED(1770, "Reader id is required", HttpStatus.BAD_REQUEST),
@@ -118,7 +119,8 @@ public enum ErrorCode {
     RESERVATION_NOT_AVAILABLE(1784, "No available copy for this reservation", HttpStatus.BAD_REQUEST),
     RESERVATION_EXPIRY_DAYS_INVALID(1785, "Reservation expiry days must be greater than zero", HttpStatus.BAD_REQUEST),
     MEMBERSHIP_EXPIRED(1786, "Library membership has expired", HttpStatus.BAD_REQUEST),
-    BORROWING_OVERDUE(1787, "Overdue books cannot be renewed online", HttpStatus.BAD_REQUEST),
+    BORROWING_OVERDUE(1787, "Sách đã quá hạn, không thể gia hạn trực tuyến. Vui lòng mang sách đến quầy.", HttpStatus.BAD_REQUEST),
+    RENEWAL_ALREADY_REQUESTED(1790, "Đã có yêu cầu gia hạn đang chờ duyệt.", HttpStatus.BAD_REQUEST),
     RESERVATION_ALREADY_CLOSED(1788, "Reservation has already been completed or cancelled", HttpStatus.BAD_REQUEST),
     NOTIFICATION_NOT_FOUND(1789, "Notification not found or does not belong to you", HttpStatus.NOT_FOUND),
     ;

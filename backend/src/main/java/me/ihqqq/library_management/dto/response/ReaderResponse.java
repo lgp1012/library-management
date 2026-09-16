@@ -26,4 +26,5 @@ public class ReaderResponse {
     String email;
     boolean active;
     long currentlyBorrowedBooks;
+    java.math.BigDecimal unpaidFine;
 }
