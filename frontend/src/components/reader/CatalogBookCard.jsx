@@ -6,13 +6,16 @@ const CatalogBookCard = ({ book }) => {
   const [requested, setRequested] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [priorityRequest, setPriorityRequest] = useState(false);
+  const [availCheck, setAvailCheck] = useState(null); // { auditId, count1, count2 }
+  const [checkingAvail, setCheckingAvail] = useState(false);
 
   const isAvailable = book.stockStatus === "available";
 
   const handleAction = async () => {
     setLoading(true);
     try {
-      await readerService.reserveBook(book.id);
+      await readerService.reserveBook(book.id, priorityRequest, priorityRequest ? 6000 : 0);
       setRequested(true);
       setShowConfirm(false);
     } catch (error) {
@@ -20,6 +23,23 @@ const CatalogBookCard = ({ book }) => {
       alert(error.response?.data?.message || "Không thể thực hiện yêu cầu lúc này.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckAvailability = async () => {
+    setCheckingAvail(true);
+    try {
+      if (!availCheck) {
+        const res = await readerService.startAvailableAudit(book.id);
+        setAvailCheck({ auditId: res.result.auditId, count1: res.result.count, count2: null });
+      } else {
+        const res = await readerService.recountAvailableAudit(availCheck.auditId);
+        setAvailCheck((prev) => ({ ...prev, count2: res.result.count }));
+      }
+    } catch (error) {
+      console.error("Failed to check availability", error);
+    } finally {
+      setCheckingAvail(false);
     }
   };
 
@@ -121,12 +141,62 @@ const CatalogBookCard = ({ book }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="mb-2 text-lg font-bold text-slate-900">Xác nhận đặt trước</h3>
-            <p className="mb-6 text-sm text-slate-600 leading-relaxed">
+            <p className="mb-4 text-sm text-slate-600 leading-relaxed">
               Bạn có chắc chắn muốn xếp hàng đặt trước sách <strong>{book.title}</strong>? Hệ thống sẽ chuyển yêu cầu cho nhân viên thư viện xử lý.
             </p>
+
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-600">
+                  Tình trạng bản sao đang có sẵn
+                </span>
+                <button
+                  onClick={handleCheckAvailability}
+                  disabled={checkingAvail || (availCheck && availCheck.count2 !== null)}
+                  className="text-xs font-semibold text-sky-700 hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {checkingAvail
+                    ? "Đang kiểm tra..."
+                    : !availCheck
+                      ? "Kiểm tra"
+                      : availCheck.count2 === null
+                        ? "Kiểm tra lại"
+                        : "Đã kiểm tra"}
+                </button>
+              </div>
+              {availCheck && (
+                <div className="mt-1.5 text-xs text-slate-500">
+                  Lần 1: <span className="font-bold text-slate-800">{availCheck.count1} bản</span>
+                  {availCheck.count2 !== null && (
+                    <>
+                      {" · "}Lần 2:{" "}
+                      <span className={`font-bold ${availCheck.count2 !== availCheck.count1 ? "text-rose-600" : "text-slate-800"}`}>
+                        {availCheck.count2} bản
+                      </span>
+                      {availCheck.count2 !== availCheck.count1 && (
+                        <span className="ml-1 font-semibold text-rose-600">⚠ Vừa có thay đổi</span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <label className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-slate-200 transition">
+              <input
+                type="checkbox"
+                checked={priorityRequest}
+                onChange={(e) => setPriorityRequest(e.target.checked)}
+                className="accent-sky-600"
+              />
+              Xử lý ưu tiên (đặt trước ngay, không xếp hàng chờ)
+            </label>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowConfirm(false)}
+                onClick={() => {
+                  setShowConfirm(false);
+                  setAvailCheck(null);
+                }}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
                 disabled={loading}
               >

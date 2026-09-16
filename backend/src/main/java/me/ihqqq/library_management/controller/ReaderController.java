@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -92,10 +93,14 @@ public class ReaderController {
     @PostMapping("/me/reservations")
     @PreAuthorize("hasRole('READER')")
     @ResponseStatus(HttpStatus.CREATED)
-    ApiResponse<ReservationResponse> reserveBook(Authentication authentication,
-                                                 @RequestBody @Valid ReservationRequest request) {
+    ApiResponse<ReservationResponse> reserveBook(
+            Authentication authentication,
+            @RequestBody @Valid ReservationRequest request,
+            @RequestParam(name = "demoDeadlock", required = false, defaultValue = "false") boolean demoDeadlock,
+            @RequestParam(name = "demoDelayMs", required = false, defaultValue = "0") long demoDelayMs
+    ) {
         return ApiResponse.<ReservationResponse>builder()
-                .result(readerService.reserveBook(authentication.getName(), request))
+                .result(readerService.reserveBook(authentication.getName(), request, demoDeadlock, demoDelayMs))
                 .build();
     }
 
@@ -113,10 +118,14 @@ public class ReaderController {
      */
     @PatchMapping("/me/borrowings/{detailId}/renew")
     @PreAuthorize("hasRole('READER')")
-    ApiResponse<DetailBorrowingSlipResponse> renewBorrowing(Authentication authentication,
-                                                            @PathVariable String detailId) {
+    ApiResponse<DetailBorrowingSlipResponse> renewBorrowing(
+            Authentication authentication,
+            @PathVariable String detailId,
+            @RequestParam(name = "demoDeadlock", required = false, defaultValue = "false") boolean demoDeadlock,
+            @RequestParam(name = "demoDelayMs", required = false, defaultValue = "0") long demoDelayMs
+    ) {
         return ApiResponse.<DetailBorrowingSlipResponse>builder()
-                .result(readerService.renewBorrowing(authentication.getName(), detailId))
+                .result(readerService.renewBorrowing(authentication.getName(), detailId, demoDeadlock, demoDelayMs))
                 .build();
     }
 

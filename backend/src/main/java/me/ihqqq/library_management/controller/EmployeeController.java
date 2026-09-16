@@ -146,6 +146,18 @@ public class EmployeeController {
                 .build();
     }
 
+    @PostMapping("/books/{bookId}/copies")
+    @ResponseStatus(HttpStatus.CREATED)
+    ApiResponse<BookCopyResponse> addBookCopy(
+            @PathVariable String bookId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String shelfId,
+            Authentication authentication
+    ) {
+        return ApiResponse.<BookCopyResponse>builder()
+                .result(employeeService.addBookCopy(bookId, shelfId, authentication.getName()))
+                .build();
+    }
+
     @PostMapping("/borrowings")
     @ResponseStatus(HttpStatus.CREATED)
     ApiResponse<EmployeeOperationResponse> borrowBooks(
@@ -187,10 +199,11 @@ public class EmployeeController {
     @PatchMapping("/borrowings/{detailId}/renew")
     ApiResponse<EmployeeOperationResponse> renewBorrowing(
             @PathVariable String detailId,
+            @org.springframework.web.bind.annotation.RequestParam(name = "demoDelayMs", required = false, defaultValue = "0") long demoDelayMs,
             Authentication authentication
     ) {
         return ApiResponse.<EmployeeOperationResponse>builder()
-                .result(employeeService.renewBorrowing(detailId, authentication.getName()))
+                .result(employeeService.renewBorrowing(detailId, authentication.getName(), demoDelayMs))
                 .build();
     }
 
@@ -202,9 +215,12 @@ public class EmployeeController {
     }
 
     @GetMapping("/fines/readers/{readerId}")
-    ApiResponse<List<FineNoticeResponse>> getFines(@PathVariable String readerId) {
+    ApiResponse<List<FineNoticeResponse>> getFines(
+            @PathVariable String readerId,
+            @org.springframework.web.bind.annotation.RequestParam(name = "demoNoLock", required = false, defaultValue = "false") boolean demoNoLock
+    ) {
         return ApiResponse.<List<FineNoticeResponse>>builder()
-                .result(employeeService.getFines(readerId))
+                .result(employeeService.getFinesFast(readerId, demoNoLock))
                 .build();
     }
 
@@ -212,11 +228,22 @@ public class EmployeeController {
     @ResponseStatus(HttpStatus.CREATED)
     ApiResponse<FineNoticeResponse> createFine(
             @RequestBody @Valid FineNoticeRequest request,
+            @org.springframework.web.bind.annotation.RequestParam(name = "demoDelayMs", required = false, defaultValue = "0") long demoDelayMs,
+            @org.springframework.web.bind.annotation.RequestParam(name = "demoAutoRollback", required = false, defaultValue = "false") boolean demoAutoRollback,
             Authentication authentication
     ) {
         return ApiResponse.<FineNoticeResponse>builder()
-                .result(employeeService.createFine(request, authentication.getName()))
+                .result(employeeService.createFine(request, authentication.getName(), demoDelayMs, demoAutoRollback))
                 .build();
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/fines/{fineId}")
+    ApiResponse<Void> deleteFine(
+            @PathVariable String fineId,
+            Authentication authentication
+    ) {
+        employeeService.deleteFine(fineId, authentication.getName());
+        return ApiResponse.<Void>builder().message("Đã huỷ phiếu phạt").build();
     }
 
     @PutMapping("/fines/{fineId}/collect")

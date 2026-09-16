@@ -77,6 +77,18 @@ export default function EmployeeFinesView() {
     }
   };
 
+  const handleDeleteFine = async (fineId) => {
+    if (!window.confirm("Huỷ (xoá) biên lai phạt này? Không thể hoàn tác.")) return;
+    try {
+      await employeeService.deleteFine(fineId);
+      toast.success("Đã huỷ phiếu phạt.");
+      setSelectedFine(null);
+      fetchFines();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi khi huỷ phiếu phạt.");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
       <div>
@@ -283,12 +295,20 @@ export default function EmployeeFinesView() {
                 Đóng
               </button>
               {!selectedFine.paidStatus && (
-                <button 
-                  onClick={() => handleCollectFine(selectedFine.fineId)}
-                  className="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-sm transition shadow-md shadow-sky-600/20 flex items-center gap-2"
-                >
-                  <DollarSign className="h-4 w-4" /> Xác nhận thu tiền
-                </button>
+                <>
+                  <button
+                    onClick={() => handleDeleteFine(selectedFine.fineId)}
+                    className="px-4 py-2 bg-white text-rose-600 border border-rose-300 hover:bg-rose-50 font-semibold rounded-xl text-sm transition"
+                  >
+                    Huỷ phiếu phạt
+                  </button>
+                  <button
+                    onClick={() => handleCollectFine(selectedFine.fineId)}
+                    className="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-sm transition shadow-md shadow-sky-600/20 flex items-center gap-2"
+                  >
+                    <DollarSign className="h-4 w-4" /> Xác nhận thu tiền
+                  </button>
+                </>
               )}
             </div>
           </div>

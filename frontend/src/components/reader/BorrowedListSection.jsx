@@ -1,6 +1,29 @@
+import { useState } from "react";
 import { RefreshCw, Clock } from "lucide-react";
+import readerService from "../../services/readerService";
+import { toast } from "react-toastify";
 
-const BorrowedListSection = ({ items = [], isLoading }) => {
+const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
+  const [renewingId, setRenewingId] = useState(null);
+  const [expressRenew, setExpressRenew] = useState(false);
+
+  const handleRenew = async (detailId) => {
+    setRenewingId(detailId);
+    try {
+      const res = await readerService.renewBorrowing(detailId, expressRenew, expressRenew ? 6000 : 0);
+      toast.success(
+        res.result?.renewalStatus === "PENDING"
+          ? "Đã gửi yêu cầu gia hạn, chờ nhân viên duyệt."
+          : "Gia hạn thành công!",
+      );
+      onRenewed?.();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể gia hạn lúc này.");
+    } finally {
+      setRenewingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-24 text-slate-500">
@@ -36,6 +59,16 @@ const BorrowedListSection = ({ items = [], isLoading }) => {
           <span>Cập nhật máy chủ: {new Date().toLocaleTimeString('vi-VN')}</span>
         </div>
       </div>
+
+      <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-slate-200 transition">
+        <input
+          type="checkbox"
+          checked={expressRenew}
+          onChange={(e) => setExpressRenew(e.target.checked)}
+          className="accent-sky-600"
+        />
+        Gia hạn nhanh (ưu tiên xử lý ngay, không xếp hàng chờ)
+      </label>
 
       <div className="grid grid-cols-1 gap-4">
         {items.map((book) => {
@@ -125,6 +158,20 @@ const BorrowedListSection = ({ items = [], isLoading }) => {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <div className="lg:col-span-4 flex lg:justify-end">
+                  <button
+                    onClick={() => handleRenew(book.id)}
+                    disabled={renewingId === book.id || book.renewalStatus === "PENDING"}
+                    className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-xs transition disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {renewingId === book.id
+                      ? "Đang gửi..."
+                      : book.renewalStatus === "PENDING"
+                        ? "Đã gửi yêu cầu"
+                        : "Gia hạn"}
+                  </button>
                 </div>
               </div>
             </div>

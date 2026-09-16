@@ -1,4 +1,4 @@
-import { Bell, Check, LibraryBig, Trash2 } from "lucide-react";
+import { Bell, Check, LibraryBig, Menu, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import Signout from "../auth/Signout";
 
@@ -9,9 +9,11 @@ const ReaderHeader = ({
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleTabClick = (tabId) => {
     if (onTabChange) onTabChange(tabId);
+    setShowMobileMenu(false);
   };
 
   // Notification items state
@@ -52,13 +54,13 @@ const ReaderHeader = ({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-sky-950 text-white shadow-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         {/* Brand Logo & Name */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 group">
-            <LibraryBig className="h-6 w-6 text-sky-400 group-hover:scale-105 transition-transform" />
+        <div className="flex min-w-0 items-center gap-6">
+          <div className="group flex min-w-0 items-center gap-2 sm:gap-3">
+            <LibraryBig className="h-6 w-6 shrink-0 text-sky-400 transition-transform group-hover:scale-105" />
             <div>
-              <h1 className="text-base font-extrabold tracking-wide sm:text-lg text-white leading-tight">
+              <h1 className="truncate text-sm font-extrabold leading-tight tracking-wide text-white sm:text-lg">
                 PPNNT Library
               </h1>
             </div>
@@ -89,13 +91,29 @@ const ReaderHeader = ({
         </div>
 
         {/* Right Section: Search shortcut, Notifications & Profile */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3 lg:gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              setShowMobileMenu((current) => !current);
+              setShowNotificationMenu(false);
+              setShowProfileMenu(false);
+            }}
+            className="rounded-lg p-2 text-sky-200 transition-colors hover:bg-sky-900 hover:text-white lg:hidden"
+            aria-label={showMobileMenu ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
+            aria-expanded={showMobileMenu}
+            aria-controls="reader-mobile-navigation"
+          >
+            {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
           {/* Notification Bell & Popup */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowNotificationMenu(!showNotificationMenu);
                 setShowProfileMenu(false);
+                setShowMobileMenu(false);
               }}
               className="relative rounded-full p-2 text-sky-200 hover:bg-sky-900 hover:text-white transition-colors"
               title="Thông báo"
@@ -111,7 +129,7 @@ const ReaderHeader = ({
 
             {/* Notification Dropdown Box */}
             {showNotificationMenu && (
-              <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-white text-slate-900 p-4 shadow-2xl border border-slate-100 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="fixed left-3 right-3 top-16 z-50 rounded-2xl border border-slate-100 bg-white p-4 text-slate-900 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-96">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-slate-900">
@@ -188,6 +206,7 @@ const ReaderHeader = ({
               onClick={() => {
                 setShowProfileMenu(!showProfileMenu);
                 setShowNotificationMenu(false);
+                setShowMobileMenu(false);
               }}
               className="flex items-center gap-2.5 rounded-full p-1 hover:bg-sky-900 transition-colors focus:outline-none"
             >
@@ -250,6 +269,35 @@ const ReaderHeader = ({
           </div>
         </div>
       </div>
+
+      {showMobileMenu && (
+        <nav
+          id="reader-mobile-navigation"
+          className="border-t border-sky-900 bg-sky-950 px-3 pb-3 pt-2 shadow-lg lg:hidden sm:px-6"
+          aria-label="Điều hướng độc giả"
+        >
+          <div className="mx-auto grid max-w-7xl gap-1">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => handleTabClick(item.id)}
+                  className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-sky-900 text-white"
+                      : "text-sky-200 hover:bg-sky-900/60 hover:text-white"
+                  }`}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </header>
   );
 };

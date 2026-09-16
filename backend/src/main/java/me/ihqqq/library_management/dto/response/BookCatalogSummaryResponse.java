@@ -8,25 +8,20 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
+/** Ánh xạ view vw_BookCatalogDetail. */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class FineNoticeResponse {
-    String fineId;
-    String detailId;
-    String borrowingId;
-    String readerId;
-    String readerName;
-    BigDecimal finePrice;
-    String reason;
-    boolean paidStatus;
-    LocalDate paidDate;
-    String collectedByEmployeeId;
-    String message;
+public class BookCatalogSummaryResponse {
+    String bookId;
+    String bookName;
+    String publisherName;
+    Integer year;
+    String authors;
+    String categories;
+    Integer totalCopies;
+    Integer availableCopies;
 }

@@ -105,6 +105,7 @@ public class EmployeeService {
     ReservationMapper reservationMapper;
     SystemLogRepository systemLogRepository;
     TransactionTemplate transactionTemplate;
+    javax.sql.DataSource dataSource;
 
     @Transactional(readOnly = true)
     public List<ReaderResponse> getReaders() {
@@ -296,6 +297,25 @@ public class EmployeeService {
         });
     }
 
+    /** Nhập thêm 1 bản sao mới cho một cuốn sách đã tồn tại. */
+    public BookCopyResponse addBookCopy(String bookId, String shelfId, String employeeUsername) {
+        return transactionTemplate.execute(status -> {
+            Book book = bookRepository.findById(bookId)
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOK_NOT_FOUND));
+            Shelf shelf = shelfId != null
+                    ? shelfRepository.findById(shelfId).orElseThrow(() -> new AppException(ErrorCode.SHELF_NOT_FOUND))
+                    : null;
+            BookCopy copy = bookCopyRepository.save(BookCopy.builder()
+                    .copyId(generateCopyId())
+                    .book(book)
+                    .status(BookCopyStatus.AVAILABLE)
+                    .shelf(shelf)
+                    .build());
+            writeLog(employeeUsername, "Added new copy " + copy.getCopyId() + " for book " + bookId);
+            return toBookCopyResponse(copy);
+        });
+    }
+
     public EmployeeOperationResponse borrowBooks(
             BorrowBooksRequest request,
             String employeeUsername
@@ -458,6 +478,16 @@ public class EmployeeService {
     }
 
     public EmployeeOperationResponse renewBorrowing(String detailId, String employeeUsername) {
+        return renewBorrowing(detailId, employeeUsername, 0);
+    }
+
+    /**
+     * demoDelayMs > 0 chỉ được dùng khi bật "Chế độ demo" trên UI: chèn một khoảng nghỉ THẬT
+     * giữa lúc đọc và lúc ghi hạn trả, để 2 nhân viên có thời gian bấm "Duyệt" gần như đồng thời
+     * trên cùng 1 yêu cầu và tái hiện Lost Update thật (phương thức này vốn không khoá dòng /
+     * không kiểm tra version, nên anomaly xảy ra tự nhiên, không cần giả lập).
+     */
+    public EmployeeOperationResponse renewBorrowing(String detailId, String employeeUsername, long demoDelayMs) {
         return transactionTemplate.execute(status -> {
             DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
                     .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
@@ -471,6 +501,13 @@ public class EmployeeService {
             BorrowingConfig config = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
                     .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
             LocalDate expected = detail.getExpectedReturnDate().plusDays(config.getMaxBorrowDays());
+            if (demoDelayMs > 0) {
+                try {
+                    Thread.sleep(Math.min(demoDelayMs, 15000));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             detail.setExpectedReturnDate(expected);
             detail.setRenewalStatus("APPROVED");
             detailBorrowingSlipRepository.save(detail);
@@ -513,7 +550,56 @@ public class EmployeeService {
                 .stream().map(this::toFineResponse).toList();
     }
 
+    /**
+     * Tra cứu công nợ "nhanh, không khoá" — khi bật demo, tự chọn mức cô lập READ UNCOMMITTED
+     * (NOLOCK) cho truy vấn này để tránh chặn nhân viên khác trong lúc quầy đông khách. Đây là
+     * truy vấn thật, chạy trực tiếp trên CSDL thật; khi có một phiếu phạt khác đang được tạo
+     * nhưng CHƯA COMMIT, truy vấn này có thể đọc thấy dữ liệu rác đó (Dirty Read) — đúng như
+     * đánh đổi thật của kỹ thuật NOLOCK ngoài đời.
+     */
+    public List<FineNoticeResponse> getFinesFast(String readerId, boolean demoNoLock) {
+        if (!demoNoLock) {
+            return getFines(readerId);
+        }
+        try (java.sql.Connection c = dataSource.getConnection()) {
+            c.setTransactionIsolation(java.sql.Connection.TRANSACTION_READ_UNCOMMITTED);
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "SELECT f.fine_id, f.fine_price, f.reason, f.paid_status, f.paid_date, f.detail_id " +
+                            "FROM fine_notices f JOIN detail_borrowing_slips d ON f.detail_id = d.detail_id " +
+                            "JOIN borrowing_slips bs ON d.borrowing_id = bs.borrowing_id " +
+                            "WHERE bs.reader_id = ? ORDER BY f.paid_status ASC, f.fine_id ASC")) {
+                ps.setString(1, readerId);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    List<FineNoticeResponse> results = new java.util.ArrayList<>();
+                    while (rs.next()) {
+                        results.add(FineNoticeResponse.builder()
+                                .fineId(rs.getString("fine_id"))
+                                .detailId(rs.getString("detail_id"))
+                                .finePrice(rs.getBigDecimal("fine_price"))
+                                .reason(rs.getString("reason"))
+                                .paidStatus(rs.getBoolean("paid_status"))
+                                .build());
+                    }
+                    return results;
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public FineNoticeResponse createFine(FineNoticeRequest request, String employeeUsername) {
+        return createFine(request, employeeUsername, 0, false);
+    }
+
+    /**
+     * demoDelayMs/demoAutoRollback chỉ dùng khi bật "Chế độ demo" trên UI: phiếu phạt được INSERT
+     * thật trong transaction thật, sau đó GIỮ TRANSACTION MỞ (chưa commit) trong demoDelayMs mili-giây
+     * để nhân viên khác kịp tra cứu (xem getFinesFast) — nếu demoAutoRollback=true thì sau đó
+     * ROLLBACK thật (đúng ngữ cảnh "tạo phiếu phạt rồi phát hiện đánh giá sai, huỷ bỏ").
+     */
+    public FineNoticeResponse createFine(FineNoticeRequest request, String employeeUsername,
+                                          long demoDelayMs, boolean demoAutoRollback) {
         return transactionTemplate.execute(status -> {
             Employee employee = findEmployeeByUsername(employeeUsername);
             DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(request.getDetailId())
@@ -526,10 +612,35 @@ public class EmployeeService {
                     .reason(request.getReason())
                     .paidStatus(false)
                     .build());
+            FineNoticeResponse response = toFineResponse(fine);
+            if (demoDelayMs > 0) {
+                detailBorrowingSlipRepository.flush();
+                fineNoticeRepository.flush();
+                try {
+                    Thread.sleep(Math.min(demoDelayMs, 15000));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (demoAutoRollback) {
+                    status.setRollbackOnly();
+                    response.setMessage("Đã huỷ phiếu phạt sau khi rà soát lại.");
+                    return response;
+                }
+            }
             notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Thông báo phạt",
                     "Bạn có khoản phạt " + request.getFinePrice() + ".", "FINE");
             writeLog(employeeUsername, "Created fine notice " + fine.getFineId());
-            return toFineResponse(fine);
+            return response;
+        });
+    }
+
+    /** Nhân viên tạo nhầm phiếu phạt và huỷ bỏ — xoá thật khỏi CSDL. */
+    public void deleteFine(String fineId, String employeeUsername) {
+        transactionTemplate.executeWithoutResult(status -> {
+            FineNotice fine = fineNoticeRepository.findById(fineId)
+                    .orElseThrow(() -> new AppException(ErrorCode.FINE_NOT_FOUND));
+            fineNoticeRepository.delete(fine);
+            writeLog(employeeUsername, "Deleted (voided) fine notice " + fineId);
         });
     }
 

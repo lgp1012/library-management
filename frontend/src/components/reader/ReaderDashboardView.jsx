@@ -91,6 +91,7 @@ const ReaderDashboardView = () => {
       {/* 2. Feature Info Cards */}
       <FeatureInfoCards />
 
+
       {/* 3. Search & Filter Bar */}
       <SearchFilterBar
         searchTerm={searchTerm}

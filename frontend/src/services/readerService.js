@@ -31,8 +31,15 @@ const readerService = {
     return res.data;
   },
 
-  reserveBook: async (bookId) => {
-    const res = await api.post("/readers/me/reservations", { bookId });
+  reserveBook: async (bookId, demoDeadlock = false, demoDelayMs = 0) => {
+    const params = new URLSearchParams();
+    if (demoDeadlock) params.set("demoDeadlock", "true");
+    if (demoDelayMs) params.set("demoDelayMs", demoDelayMs);
+    const qs = params.toString();
+    const res = await api.post(
+      `/readers/me/reservations${qs ? `?${qs}` : ""}`,
+      { bookId },
+    );
     return res.data;
   },
 
@@ -43,6 +50,27 @@ const readerService = {
 
   cancelReservation: async (reservationId) => {
     const res = await api.patch(`/readers/me/reservations/${reservationId}/cancel`);
+    return res.data;
+  },
+
+  renewBorrowing: async (detailId, demoDeadlock = false, demoDelayMs = 0) => {
+    const params = new URLSearchParams();
+    if (demoDeadlock) params.set("demoDeadlock", "true");
+    if (demoDelayMs) params.set("demoDelayMs", demoDelayMs);
+    const qs = params.toString();
+    const res = await api.patch(
+      `/readers/me/borrowings/${detailId}/renew${qs ? `?${qs}` : ""}`,
+    );
+    return res.data;
+  },
+
+  startAvailableAudit: async (bookId) => {
+    const res = await api.post(`/inventory-audit/available/start?bookId=${bookId}`);
+    return res.data;
+  },
+
+  recountAvailableAudit: async (auditId) => {
+    const res = await api.post(`/inventory-audit/available/${auditId}/recount`);
     return res.data;
   },
 

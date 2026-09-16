@@ -11,22 +11,21 @@ import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/** Ánh xạ view vw_OverdueReaders. */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class FineNoticeResponse {
-    String fineId;
-    String detailId;
-    String borrowingId;
+public class OverdueReaderResponse {
     String readerId;
     String readerName;
-    BigDecimal finePrice;
-    String reason;
-    boolean paidStatus;
-    LocalDate paidDate;
-    String collectedByEmployeeId;
-    String message;
+    String email;
+    String phoneNumber;
+    String bookName;
+    String copyId;
+    LocalDate expectedReturnDate;
+    Integer overdueDays;
+    BigDecimal estimatedFine;
 }
