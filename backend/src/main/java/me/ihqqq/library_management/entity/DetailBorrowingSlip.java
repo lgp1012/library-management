@@ -44,4 +44,7 @@ public class DetailBorrowingSlip {
 
     @Column(name = "actual_return_date")
     LocalDate actualReturnDate;
+
+    @Column(name = "renewal_status", length = 20)
+    String renewalStatus; // e.g., PENDING, REJECTED
 }

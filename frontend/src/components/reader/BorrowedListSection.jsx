@@ -1,21 +1,6 @@
-import { useState } from "react";
-import { RefreshCw, Lock, CheckCircle2, Clock } from "lucide-react";
-import readerService from "../../services/readerService";
+import { RefreshCw, Clock } from "lucide-react";
 
-const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
-  const [renewedMap, setRenewedMap] = useState({});
-
-  const handleRenewItem = async (detailId) => {
-    try {
-      await readerService.renewBorrowing(detailId);
-      setRenewedMap((prev) => ({ ...prev, [detailId]: true }));
-      if (onRenewed) onRenewed();
-    } catch (error) {
-      console.error("Failed to renew borrowing:", error);
-      alert("Không thể gia hạn. Vui lòng kiểm tra lại điều kiện gia hạn.");
-    }
-  };
-
+const BorrowedListSection = ({ items = [], isLoading }) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-24 text-slate-500">
@@ -54,8 +39,6 @@ const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
 
       <div className="grid grid-cols-1 gap-4">
         {items.map((book) => {
-          const isItemRenewed = renewedMap[book.id];
-
           return (
             <div
               key={book.id}
@@ -77,7 +60,7 @@ const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
                         : "bg-slate-100 text-slate-700 border border-slate-200"
                     }`}
                   >
-                    {isItemRenewed ? "Đã gia hạn thành công" : book.statusTag}
+                    {book.statusTag}
                   </span>
 
                   <span className="text-[11px] text-slate-400 font-medium">
@@ -128,7 +111,7 @@ const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
                               : "text-slate-800"
                           }`}
                         >
-                          {isItemRenewed ? "Đã gia hạn thêm" : book.dueDate}
+                          {book.dueDate}
                         </span>
                       </div>
 
@@ -137,39 +120,11 @@ const BorrowedListSection = ({ items = [], isLoading, onRenewed }) => {
                           GIA HẠN
                         </span>
                         <span className="font-bold text-slate-800">
-                          {isItemRenewed ? "Thành công" : "-"}
+                          {book.renewalStatus === 'APPROVED' ? book.dueDate : "-"}
                         </span>
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Right Action Buttons */}
-                <div className="lg:col-span-4 flex flex-col items-center lg:items-end justify-center gap-2">
-                  {book.canRenew ? (
-                    <button
-                      onClick={() => handleRenewItem(book.id)}
-                      disabled={isItemRenewed}
-                      className={`w-full lg:w-auto flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold shadow-xs transition-colors ${
-                        isItemRenewed
-                          ? "bg-emerald-600 text-white cursor-default"
-                          : "bg-blue-950 text-white hover:bg-blue-900"
-                      }`}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      <span>
-                        {isItemRenewed ? "Đã gia hạn thành công" : book.buttonText}
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full lg:w-auto flex items-center justify-center gap-2 rounded-xl bg-slate-200 px-5 py-2.5 text-xs font-bold text-slate-500 cursor-not-allowed border border-slate-300/60"
-                    >
-                      <Lock className="h-3.5 w-3.5" />
-                      <span>{book.buttonText}</span>
-                    </button>
-                  )}
                 </div>
               </div>
             </div>

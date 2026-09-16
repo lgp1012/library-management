@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
 import BorrowedHeaderSummary from "./BorrowedHeaderSummary";
 import BorrowedDueAlert from "./BorrowedDueAlert";
 import BorrowedListSection from "./BorrowedListSection";
@@ -70,7 +70,8 @@ const ReaderBorrowedView = () => {
         canRenew: diffDays >= 0,
         buttonText: diffDays >= 0 ? "Gia hạn thêm" : "Không thể gia hạn",
         diffDays,
-        expectedReturnDate: b.expectedReturnDate
+        expectedReturnDate: b.expectedReturnDate,
+        renewalStatus: b.renewalStatus
       };
     });
   }, [borrowings, catalogBooks]);

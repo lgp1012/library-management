@@ -286,18 +286,12 @@ public class ReaderService {
                     reader.getReaderId(), book.getBookId(), waitingStatuses).isEmpty()) {
                 throw new AppException(ErrorCode.BOOK_RESERVED_BY_OTHERS);
             }
-            int extendDays = borrowingConfigRepository.findTopByOrderByUpdatedAtDesc()
-                    .map(BorrowingConfig::getMaxBorrowDays)
-                    .orElse(7);
-            LocalDate newExpectedReturnDate =
-                    detail.getExpectedReturnDate().plusDays(extendDays);
-            detail.setExpectedReturnDate(newExpectedReturnDate);
+            if ("PENDING".equals(detail.getRenewalStatus())) {
+                throw new AppException(ErrorCode.RENEWAL_ALREADY_REQUESTED);
+            }
+            detail.setRenewalStatus("PENDING");
             DetailBorrowingSlip saved = detailBorrowingSlipRepository.save(detail);
-            createNotification(reader.getUser(), "Gia hạn mượn sách",
-                    "Gia hạn thành công cho sách \"" + book.getBookName()
-                            + "\". Hạn trả mới: " + newExpectedReturnDate + ".", "BORROWING");
-            log.info("Borrowing detail renewed: {} -> new expected return date {}",
-                    detailId, newExpectedReturnDate);
+            log.info("Renewal request submitted for detail: {}", detailId);
             return DetailBorrowingSlipResponse.builder()
                     .detailId(saved.getDetailId())
                     .borrowingId(saved.getBorrowingSlip().getBorrowingId())
@@ -306,6 +300,7 @@ public class ReaderService {
                     .bookName(book.getBookName())
                     .expectedReturnDate(saved.getExpectedReturnDate())
                     .actualReturnDate(saved.getActualReturnDate())
+                    .renewalStatus(saved.getRenewalStatus())
                     .build();
         });
     }
@@ -440,5 +435,6 @@ public class ReaderService {
         return id;
     }
 }
+
 
 

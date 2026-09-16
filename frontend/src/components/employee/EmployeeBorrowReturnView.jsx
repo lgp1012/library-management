@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { 
   Search, Clock, ChevronRight, CheckCircle2, AlertCircle, Plus, 
   RotateCcw, ShieldAlert, ArrowLeft, BookOpen, UserCircle2, BookUp, DollarSign

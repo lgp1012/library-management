@@ -44,8 +44,8 @@ public enum ErrorCode {
 
     DETAIL_BORROWING_NOT_FOUND(1601, "Borrowing detail not found", HttpStatus.NOT_FOUND),
     BORROWING_NOT_OWNED(1602, "This borrowing record does not belong to you", HttpStatus.FORBIDDEN),
-    BOOK_ALREADY_RETURNED(1603, "This book has already been returned, cannot renew", HttpStatus.BAD_REQUEST),
-    BOOK_RESERVED_BY_OTHERS(1604, "Cannot renew: another reader is waiting for this book", HttpStatus.BAD_REQUEST),
+    BOOK_ALREADY_RETURNED(1603, "Sách đã được trả, không thể gia hạn.", HttpStatus.BAD_REQUEST),
+    BOOK_RESERVED_BY_OTHERS(1604, "Không thể gia hạn: Có độc giả khác đang đặt trước tựa sách này.", HttpStatus.BAD_REQUEST),
     BORROWING_CONFIG_NOT_FOUND(1605, "Borrowing configuration has not been set up", HttpStatus.NOT_FOUND),
 
     EMPLOYEE_NOT_FOUND(1701, "Employee not found", HttpStatus.NOT_FOUND),
@@ -119,7 +119,8 @@ public enum ErrorCode {
     RESERVATION_NOT_AVAILABLE(1784, "No available copy for this reservation", HttpStatus.BAD_REQUEST),
     RESERVATION_EXPIRY_DAYS_INVALID(1785, "Reservation expiry days must be greater than zero", HttpStatus.BAD_REQUEST),
     MEMBERSHIP_EXPIRED(1786, "Library membership has expired", HttpStatus.BAD_REQUEST),
-    BORROWING_OVERDUE(1787, "Overdue books cannot be renewed online", HttpStatus.BAD_REQUEST),
+    BORROWING_OVERDUE(1787, "Sách đã quá hạn, không thể gia hạn trực tuyến. Vui lòng mang sách đến quầy.", HttpStatus.BAD_REQUEST),
+    RENEWAL_ALREADY_REQUESTED(1790, "Đã có yêu cầu gia hạn đang chờ duyệt.", HttpStatus.BAD_REQUEST),
     RESERVATION_ALREADY_CLOSED(1788, "Reservation has already been completed or cancelled", HttpStatus.BAD_REQUEST),
     NOTIFICATION_NOT_FOUND(1789, "Notification not found or does not belong to you", HttpStatus.NOT_FOUND),
     ;

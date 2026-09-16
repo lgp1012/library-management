@@ -167,6 +167,23 @@ public class EmployeeController {
                 .build();
     }
 
+    @GetMapping("/borrowings/renewals/pending")
+    ApiResponse<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>> getPendingRenewals() {
+        return ApiResponse.<List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse>>builder()
+                .result(employeeService.getPendingRenewals())
+                .build();
+    }
+
+    @PatchMapping("/borrowings/{detailId}/renew/reject")
+    ApiResponse<EmployeeOperationResponse> rejectRenewal(
+            @PathVariable String detailId,
+            Authentication authentication
+    ) {
+        return ApiResponse.<EmployeeOperationResponse>builder()
+                .result(employeeService.rejectRenewal(detailId, authentication.getName()))
+                .build();
+    }
+
     @PatchMapping("/borrowings/{detailId}/renew")
     ApiResponse<EmployeeOperationResponse> renewBorrowing(
             @PathVariable String detailId,

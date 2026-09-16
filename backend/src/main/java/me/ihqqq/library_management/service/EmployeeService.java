@@ -421,6 +421,42 @@ public class EmployeeService {
         });
     }
 
+    @Transactional(readOnly = true)
+    public List<me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse> getPendingRenewals() {
+        return detailBorrowingSlipRepository.findByRenewalStatus("PENDING").stream().map(d ->
+                me.ihqqq.library_management.dto.response.DetailBorrowingSlipResponse.builder()
+                        .detailId(d.getDetailId())
+                        .borrowingId(d.getBorrowingSlip().getBorrowingId())
+                        .readerId(d.getBorrowingSlip().getReader().getReaderId())
+                        .readerName(d.getBorrowingSlip().getReader().getReaderName())
+                        .copyId(d.getCopy().getCopyId())
+                        .bookId(d.getCopy().getBook().getBookId())
+                        .bookName(d.getCopy().getBook().getBookName())
+                        .borrowingDate(d.getBorrowingSlip().getBorrowDate().toLocalDate())
+                        .expectedReturnDate(d.getExpectedReturnDate())
+                        .actualReturnDate(d.getActualReturnDate())
+                        .renewalStatus(d.getRenewalStatus())
+                        .build())
+                .toList();
+    }
+
+    public EmployeeOperationResponse rejectRenewal(String detailId, String employeeUsername) {
+        return transactionTemplate.execute(status -> {
+            DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
+                    .orElseThrow(() -> new AppException(ErrorCode.DETAIL_BORROWING_NOT_FOUND));
+            detail.setRenewalStatus("REJECTED");
+            detailBorrowingSlipRepository.save(detail);
+            notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Từ chối gia hạn",
+                    "Yêu cầu gia hạn cho sách \"" + detail.getCopy().getBook().getBookName() + "\" đã bị từ chối.", "BORROWING");
+            writeLog(employeeUsername, "Rejected renewal for detail " + detailId);
+            return EmployeeOperationResponse.builder()
+                    .operationId(detailId)
+                    .detailId(detailId)
+                    .message("Renewal request rejected")
+                    .build();
+        });
+    }
+
     public EmployeeOperationResponse renewBorrowing(String detailId, String employeeUsername) {
         return transactionTemplate.execute(status -> {
             DetailBorrowingSlip detail = detailBorrowingSlipRepository.findById(detailId)
@@ -436,6 +472,7 @@ public class EmployeeService {
                     .orElseThrow(() -> new AppException(ErrorCode.BORROWING_CONFIG_NOT_FOUND));
             LocalDate expected = detail.getExpectedReturnDate().plusDays(config.getMaxBorrowDays());
             detail.setExpectedReturnDate(expected);
+            detail.setRenewalStatus("APPROVED");
             detailBorrowingSlipRepository.save(detail);
             notifyReader(detail.getBorrowingSlip().getReader().getUser(), "Gia hạn mượn sách",
                     "Hạn trả mới: " + expected + ".", "BORROWING");
@@ -576,8 +613,11 @@ public class EmployeeService {
                 notifyReader(reservation.getReader().getUser(), "Sách đặt trước đã sẵn sàng",
                         "Vui lòng nhận sách trước ngày " + reservation.getExpiryDate() + ".", "RESERVATION");
             } else {
-                long activeBorrowings = detailBorrowingSlipRepository.countByCopy_Book_BookIdAndActualReturnDateIsNull(reservation.getBook().getBookId());
-                if (activeBorrowings == 0) {
+                long validCopies = bookCopyRepository.findByBook_BookId(reservation.getBook().getBookId()).stream()
+                        .filter(c -> !c.getStatus().equals(BookCopyStatus.LOST) 
+                                  && !c.getStatus().equals(BookCopyStatus.DAMAGED))
+                        .count();
+                if (validCopies == 0) {
                     throw new AppException(ErrorCode.RESERVATION_NOT_AVAILABLE);
                 }
                 reservation.setStatus(ReservationStatus.WAITING);
