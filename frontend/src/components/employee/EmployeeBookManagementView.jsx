@@ -364,6 +364,19 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
     }
   };
 
+  const handleAddCopy = async () => {
+    setIsUpdating(true);
+    try {
+      const res = await employeeService.addBookCopy(book.bookId, copies[0]?.shelfId);
+      setCopies((prev) => [...prev, res.result]);
+      toast.success(`Đã nhập thêm bản sao mới: ${res.result.copyId}`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Lỗi khi nhập thêm bản sao");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="animate-in slide-in-from-right-8 duration-300">
       <button
@@ -415,6 +428,13 @@ const BookDetailPanel = ({ book, onBack, shelves }) => {
             <h3 className="text-lg font-bold text-slate-800">
               Danh sách bản sao vật lý
             </h3>
+            <button
+              onClick={handleAddCopy}
+              disabled={isUpdating}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+            >
+              + Nhập thêm 1 bản sao
+            </button>
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200">

@@ -7,9 +7,11 @@ import {
   Calendar,
   CheckCircle2,
   DollarSign,
+  Plus,
   RefreshCcw,
   Search,
   ShieldAlert,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
@@ -240,12 +242,20 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const fetchData = async () => {
+  // Lập biên bản phạt
+  const [showFineModal, setShowFineModal] = useState(false);
+  const [fineDetailId, setFineDetailId] = useState("");
+  const [finePrice, setFinePrice] = useState(150000);
+  const [fineReason, setFineReason] = useState("");
+  const [reviewBeforeSave, setReviewBeforeSave] = useState(false);
+  const [creatingFine, setCreatingFine] = useState(false);
+
+  const fetchData = async (fast = false) => {
     setIsLoading(true);
     try {
       const [borRes, finesRes] = await Promise.all([
         employeeService.getReaderBorrowings(reader.readerId),
-        employeeService.getFines(reader.readerId),
+        employeeService.getFines(reader.readerId, fast),
       ]);
       setBorrowings(borRes.result || []);
       setFines(finesRes.result || []);
@@ -260,6 +270,47 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleCollectFine = async (fineId) => {
+    if (!window.confirm("Xác nhận đã thu tiền phạt cho biên lai này?")) return;
+    try {
+      await employeeService.collectFine(fineId);
+      toast.success("Đã ghi nhận thu tiền phạt.");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi khi thu tiền phạt.");
+    }
+  };
+
+  const handleOpenFineModal = () => {
+    setFineDetailId(currentBorrowings[0]?.detailId || "");
+    setFinePrice(150000);
+    setFineReason("");
+    setReviewBeforeSave(false);
+    setShowFineModal(true);
+  };
+
+  const handleCreateFine = async () => {
+    if (!fineDetailId) {
+      toast.error("Chọn phiếu mượn liên quan để lập biên bản.");
+      return;
+    }
+    setCreatingFine(true);
+    try {
+      const res = await employeeService.createFine(
+        { detailId: fineDetailId, finePrice, reason: fineReason || "Vi phạm quy định mượn trả" },
+        reviewBeforeSave ? 6000 : 0,
+        reviewBeforeSave,
+      );
+      toast.info(res.result?.message || `Đã lập biên bản phạt ${res.result?.fineId}.`);
+      setShowFineModal(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi khi lập biên bản phạt.");
+    } finally {
+      setCreatingFine(false);
+    }
+  };
 
   const handleDeactivate = async () => {
     if (!window.confirm("Bạn có chắc muốn khóa thẻ này?")) return;
@@ -622,66 +673,87 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
 
                 {/* BIÊN LAI PHẠT */}
                 {activeTab === "fines" && (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm text-slate-600">
-                      <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">
-                            Mã biên lai
-                          </th>
-                          <th className="px-4 py-3 font-semibold">Lý do</th>
-                          <th className="px-4 py-3 font-semibold">Số tiền</th>
-                          <th className="px-4 py-3 font-semibold">
-                            Trạng thái
-                          </th>
-                          <th className="px-4 py-3 font-semibold text-right">
-                            Thao tác
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {fines.length === 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => fetchData(true)}
+                        title="Làm mới nhanh (ưu tiên tốc độ, không chờ giao dịch khác)"
+                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                      >
+                        <Zap className="h-3.5 w-3.5" /> Làm mới nhanh
+                      </button>
+                      <button
+                        onClick={handleOpenFineModal}
+                        disabled={currentBorrowings.length === 0}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Lập biên bản phạt
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                           <tr>
-                            <td
-                              colSpan="5"
-                              className="px-4 py-8 text-center text-slate-400"
-                            >
-                              Không có biên lai phạt nào.
-                            </td>
+                            <th className="px-4 py-3 font-semibold">
+                              Mã biên lai
+                            </th>
+                            <th className="px-4 py-3 font-semibold">Lý do</th>
+                            <th className="px-4 py-3 font-semibold">Số tiền</th>
+                            <th className="px-4 py-3 font-semibold">
+                              Trạng thái
+                            </th>
+                            <th className="px-4 py-3 font-semibold text-right">
+                              Thao tác
+                            </th>
                           </tr>
-                        ) : (
-                          fines.map((f) => (
-                            <tr key={f.fineId} className="hover:bg-slate-50/50">
-                              <td className="px-4 py-3 font-mono font-bold text-slate-700">
-                                {f.fineId}
-                              </td>
-                              <td className="px-4 py-3">{f.reason}</td>
-                              <td className="px-4 py-3 font-bold text-rose-600">
-                                {f.finePrice.toLocaleString("vi-VN")} đ
-                              </td>
-                              <td className="px-4 py-3">
-                                {f.paidStatus ? (
-                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
-                                    Đã thanh toán
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">
-                                    Chưa thanh toán
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {!f.paidStatus && (
-                                  <button className="px-3 py-1.5 bg-sky-600 text-white text-xs font-semibold rounded-lg hover:bg-sky-700 transition">
-                                    Thu tiền
-                                  </button>
-                                )}
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {fines.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="5"
+                                className="px-4 py-8 text-center text-slate-400"
+                              >
+                                Không có biên lai phạt nào.
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ) : (
+                            fines.map((f) => (
+                              <tr key={f.fineId} className="hover:bg-slate-50/50">
+                                <td className="px-4 py-3 font-mono font-bold text-slate-700">
+                                  {f.fineId}
+                                </td>
+                                <td className="px-4 py-3">{f.reason}</td>
+                                <td className="px-4 py-3 font-bold text-rose-600">
+                                  {f.finePrice.toLocaleString("vi-VN")} đ
+                                </td>
+                                <td className="px-4 py-3">
+                                  {f.paidStatus ? (
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
+                                      Đã thanh toán
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">
+                                      Chưa thanh toán
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  {!f.paidStatus && (
+                                    <button
+                                      onClick={() => handleCollectFine(f.fineId)}
+                                      className="px-3 py-1.5 bg-sky-600 text-white text-xs font-semibold rounded-lg hover:bg-sky-700 transition"
+                                    >
+                                      Thu tiền
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </>
@@ -689,6 +761,81 @@ const ReaderDetailPanel = ({ reader: initialReader, onBack }) => {
           </div>
         </div>
       </div>
+
+      {showFineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
+              Lập biên bản phạt cho {reader.readerName}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Phiếu mượn liên quan
+                </label>
+                <select
+                  value={fineDetailId}
+                  onChange={(e) => setFineDetailId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-sky-500"
+                >
+                  {currentBorrowings.map((b) => (
+                    <option key={b.detailId} value={b.detailId}>
+                      {b.bookName} — {b.copyId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Số tiền phạt (đ)
+                </label>
+                <input
+                  type="number"
+                  value={finePrice}
+                  onChange={(e) => setFinePrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Lý do
+                </label>
+                <input
+                  type="text"
+                  value={fineReason}
+                  onChange={(e) => setFineReason(e.target.value)}
+                  placeholder="VD: Trả sách hư, quá hạn..."
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-sky-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reviewBeforeSave}
+                  onChange={(e) => setReviewBeforeSave(e.target.checked)}
+                  className="accent-sky-600"
+                />
+                Giữ lại để rà soát trước khi lưu chính thức
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setShowFineModal(false)}
+                className="px-4 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 font-semibold rounded-xl text-sm transition"
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={handleCreateFine}
+                disabled={creatingFine}
+                className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition disabled:opacity-50"
+              >
+                {creatingFine ? "Đang xử lý..." : "Lập biên bản"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

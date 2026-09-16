@@ -1,11 +1,44 @@
 import { useState, useMemo } from "react";
 import { useEmployee } from "../../hooks/useEmployee";
 import { Layers, MapPin, Search, BookOpen, Hash, ArrowRight, X, Copy, BookMarked, Tag, User } from "lucide-react";
+import employeeService from "../../services/employeeService";
+import { toast } from "react-toastify";
 
 const EmployeeShelvesView = () => {
   const { shelves, books } = useEmployee();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedShelf, setSelectedShelf] = useState(null);
+  const [audit, setAudit] = useState(null); // { auditId, count1, count2 }
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const handleStartAudit = async (shelfId) => {
+    setAuditLoading(true);
+    try {
+      const res = await employeeService.startShelfAudit(shelfId);
+      setAudit({ auditId: res.result.auditId, count1: res.result.count, count2: null });
+      toast.info(
+        `Bắt đầu kiểm kê: đếm được ${res.result.count} cuốn. Bấm "Đếm lại để xác nhận" trước khi chốt biên bản.`,
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi khi bắt đầu kiểm kê.");
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleRecountAudit = async () => {
+    if (!audit) return;
+    setAuditLoading(true);
+    try {
+      const res = await employeeService.recountShelfAudit(audit.auditId);
+      setAudit((prev) => ({ ...prev, count2: res.result.count }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Phiên kiểm kê đã hết hạn.");
+      setAudit(null);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
 
   // Group shelves by area/position and calculate statistics
   const processedInventory = useMemo(() => {
@@ -152,7 +185,7 @@ const EmployeeShelvesView = () => {
                 {group.shelves.map((shelf) => (
                   <div
                     key={shelf.shelfId}
-                    onClick={() => setSelectedShelf(shelf)}
+                    onClick={() => { setSelectedShelf(shelf); setAudit(null); }}
                     className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-sky-300 transition-all cursor-pointer group flex flex-col justify-between"
                   >
                     <div>
@@ -206,9 +239,43 @@ const EmployeeShelvesView = () => {
                 <h3 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                   Chi tiết Kệ: {selectedShelf.shelfName}
                 </h3>
+                {!audit ? (
+                  <button
+                    onClick={() => handleStartAudit(selectedShelf.shelfId)}
+                    disabled={auditLoading}
+                    className="mt-2 text-xs font-semibold text-sky-700 hover:underline disabled:opacity-50"
+                  >
+                    Bắt đầu kiểm kê kệ này
+                  </button>
+                ) : (
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                    <span className="text-slate-500">
+                      Kiểm kê — lần 1: <span className="font-black text-slate-800">{audit.count1} cuốn</span>
+                    </span>
+                    {audit.count2 !== null ? (
+                      <span className="text-slate-500">
+                        lần 2:{" "}
+                        <span className={`font-black ${audit.count2 !== audit.count1 ? "text-rose-600" : "text-slate-800"}`}>
+                          {audit.count2} cuốn
+                        </span>
+                        {audit.count2 !== audit.count1 && (
+                          <span className="ml-1 font-semibold text-rose-600">⚠ Khác lần đầu!</span>
+                        )}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleRecountAudit}
+                        disabled={auditLoading}
+                        className="font-semibold text-sky-700 hover:underline disabled:opacity-50"
+                      >
+                        Đếm lại để xác nhận
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <button
-                onClick={() => setSelectedShelf(null)}
+                onClick={() => { setSelectedShelf(null); setAudit(null); }}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />

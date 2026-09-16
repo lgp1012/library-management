@@ -36,6 +36,12 @@ const employeeService = {
     const res = await api.delete(`/employees/books/${id}`);
     return res.data;
   },
+  addBookCopy: async (bookId, shelfId) => {
+    const res = await api.post(
+      `/employees/books/${bookId}/copies${shelfId ? `?shelfId=${shelfId}` : ""}`,
+    );
+    return res.data;
+  },
   deleteBookCopy: async (copyId) => {
     const res = await api.delete(`/employees/copies/${copyId}`);
     return res.data;
@@ -57,8 +63,10 @@ const employeeService = {
     const res = await api.post("/employees/returns", data);
     return res.data;
   },
-  renewBorrowing: async (detailId) => {
-    const res = await api.patch(`/employees/borrowings/${detailId}/renew`);
+  renewBorrowing: async (detailId, demoDelayMs = 0) => {
+    const res = await api.patch(
+      `/employees/borrowings/${detailId}/renew${demoDelayMs ? `?demoDelayMs=${demoDelayMs}` : ""}`,
+    );
     return res.data;
   },
 
@@ -67,8 +75,10 @@ const employeeService = {
     const res = await api.get("/employees/fines");
     return res.data;
   },
-  getFines: async (readerId) => {
-    const res = await api.get(`/employees/fines/readers/${readerId}`);
+  getFines: async (readerId, demoNoLock = false) => {
+    const res = await api.get(
+      `/employees/fines/readers/${readerId}${demoNoLock ? "?demoNoLock=true" : ""}`,
+    );
     return res.data;
   },
   getFineConfigs: async () => {
@@ -83,12 +93,28 @@ const employeeService = {
     const res = await api.get("/employees/borrowings/active");
     return res.data;
   },
-  createFine: async (data) => {
-    const res = await api.post("/employees/fines", data);
+  createFine: async (data, demoDelayMs = 0, demoAutoRollback = false) => {
+    const params = new URLSearchParams();
+    if (demoDelayMs) params.set("demoDelayMs", demoDelayMs);
+    if (demoAutoRollback) params.set("demoAutoRollback", "true");
+    const qs = params.toString();
+    const res = await api.post(`/employees/fines${qs ? `?${qs}` : ""}`, data);
+    return res.data;
+  },
+  deleteFine: async (fineId) => {
+    const res = await api.delete(`/employees/fines/${fineId}`);
     return res.data;
   },
   collectFine: async (fineId) => {
     const res = await api.put(`/employees/fines/${fineId}/collect`);
+    return res.data;
+  },
+  startShelfAudit: async (shelfId) => {
+    const res = await api.post(`/inventory-audit/shelf/start?shelfId=${shelfId}`);
+    return res.data;
+  },
+  recountShelfAudit: async (auditId) => {
+    const res = await api.post(`/inventory-audit/shelf/${auditId}/recount`);
     return res.data;
   },
 
